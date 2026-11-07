@@ -55,8 +55,9 @@ type Options struct {
 	// which OnLink, or else the router or a ui.Link, opens, as a path of
 	// the app's to open it in place, or false to leave it text, as
 	// GitHub does for a person or an issue it does not know. Without it,
-	// they show as text. It is asked as paragraphs build, so it looks up
-	// what the app has at hand: paragraphs follow when its answers change.
+	// they show as text. It is asked for each one shown whenever the view
+	// builds, so it looks up what the app has at hand, as in a map, and
+	// paragraphs follow when its answers change.
 	Resolve func(in parser.Inline) (dest string, ok bool)
 	// Preview, when set, returns what shows while the pointer rests on a
 	// link to dest, a mention's or a reference's included: a function
@@ -482,7 +483,7 @@ func (st *viewState) para(i int, base spanStyle) *para {
 	st.doc.Inlines(i) // their revision
 	pc := &st.paras[i]
 	fading := st.fade != nil && st.fade(max(b.End-1, b.Start)) < 1
-	if pc.ok && pc.start == b.Start && pc.end == b.End && pc.kind == b.Kind && pc.rev == b.Revision() && pc.base == base && !pc.p.fading && !fading && !b.Healed() && st.sameResolved(i, pc.p.resolved) {
+	if pc.ok && pc.start == b.Start && pc.end == b.End && pc.kind == b.Kind && pc.rev == b.Revision() && pc.base == base && !pc.p.fading && !fading && !b.Healed() && st.sameResolved(i, &pc.p) {
 		return &pc.p
 	}
 	pc.start, pc.end, pc.kind, pc.rev, pc.base, pc.ok = b.Start, b.End, b.Kind, b.Revision(), base, true
@@ -498,26 +499,29 @@ func (st *viewState) para(i int, base spanStyle) *para {
 }
 
 // sameResolved reports whether the mentions and references of block i
-// resolve where they did, as a paragraph built resolved them.
-func (st *viewState) sameResolved(i int, resolved []string) bool {
-	if st.o.Resolve == nil || len(resolved) == 0 {
+// resolve where they did as p was built, Options.Resolve set or not
+// alike.
+func (st *viewState) sameResolved(i int, p *para) bool {
+	if len(p.refs) == 0 {
 		return true
 	}
-	k := 0
-	for _, in := range st.doc.Inlines(i) {
-		if in.Kind != parser.Mention && in.Kind != parser.Reference {
-			continue
-		}
-		dest, ok := st.o.Resolve(in)
+	if (st.o.Resolve != nil) != p.withResolve {
+		return false
+	}
+	if st.o.Resolve == nil {
+		return true
+	}
+	in := st.doc.Inlines(i)
+	for k, x := range p.refs {
+		dest, ok := st.o.Resolve(in[x])
 		if !ok {
 			dest = ""
 		}
-		if k >= len(resolved) || resolved[k] != dest {
+		if dest != p.resolved[k] {
 			return false
 		}
-		k++
 	}
-	return k == len(resolved)
+	return true
 }
 
 // paragraph builds the text of block i: a paragraph, a heading or a cell.

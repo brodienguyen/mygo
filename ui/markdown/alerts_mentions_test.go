@@ -69,6 +69,22 @@ func TestViewMentions(t *testing.T) {
 	if err := tt.Click("@nobody"); err != nil || opened[len(opened)-1] != "/users/nobody" {
 		t.Errorf("@nobody once known: %v, opened %q", err, opened)
 	}
+	// Resolve set later makes them links, and cleared, text again.
+	var o2 Options
+	tt = ui.NewTester(func(c *ui.Context) { View(c, src, &o2) }, 600, 400)
+	if err := tt.Click("@octocat"); err == nil {
+		t.Error("@octocat is a link without Resolve")
+	}
+	o2.Resolve, o2.OnLink = r.resolve, o.OnLink
+	tt.Frame()
+	if err := tt.Click("@octocat"); err != nil {
+		t.Errorf("@octocat once Resolve is set: %v in %q", err, tt.Texts())
+	}
+	o2.Resolve = nil
+	tt.Frame()
+	if err := tt.Click("@octocat"); err == nil {
+		t.Error("@octocat is still a link once Resolve is cleared")
+	}
 	// Without Resolve, they are text.
 	tt = ui.NewTester(func(c *ui.Context) { View(c, src, nil) }, 600, 400)
 	if !tt.HasText(src) {

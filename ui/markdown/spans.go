@@ -46,9 +46,12 @@ type para struct {
 	objects []mathObject
 	runes   int
 	fading  bool // its spans fade in: build them anew next frame
-	// resolved are where its mentions and references went, "" for those
-	// left text, to build it anew when Options.Resolve answers otherwise.
-	resolved []string
+	// refs are the inlines of its mentions and references, and resolved
+	// where each went, "" for those left text, as Options.Resolve, when
+	// withResolve, answered: it builds anew when it answers otherwise.
+	refs        []int
+	resolved    []string
+	withResolve bool
 	// width is the width of its text on one line, once measured.
 	width    float32
 	measured bool
@@ -93,7 +96,7 @@ type spanBuilder struct {
 
 // build makes the paragraph of block i, of base style s.
 func (sb *spanBuilder) build(p *para, base spanStyle) {
-	*p = para{pieces: p.pieces[:0], marks: p.marks[:0], resolved: p.resolved[:0]}
+	*p = para{pieces: p.pieces[:0], marks: p.marks[:0], refs: p.refs[:0], resolved: p.resolved[:0], withResolve: sb.resolve != nil}
 	sb.p = p
 	sb.in = sb.d.Inlines(sb.block)
 	sb.html = sb.html[:0]
@@ -282,8 +285,9 @@ func (sb *spanBuilder) inlines(from, to int, s spanStyle) {
 				if !ok {
 					dest = ""
 				}
-				sb.p.resolved = append(sb.p.resolved, dest)
 			}
+			sb.p.refs = append(sb.p.refs, k)
+			sb.p.resolved = append(sb.p.resolved, dest)
 			if dest == "" || s.inLink {
 				sb.add(n.Text, n.Start, n.End, exact, sb.htmlStyle(s), link)
 				continue
