@@ -407,6 +407,9 @@ func (st *viewState) defaultBlock(c *ui.Context, i int, tight bool, base spanSty
 			st.note(el.ID(), i, 0)
 		})
 	case parser.Quote:
+		if b.Alert != parser.NoAlert {
+			return st.alert(c, i, b.Alert, base)
+		}
 		s := base
 		s.color = th.QuoteText
 		// The bar on the side lines start: the right right to left.
@@ -418,6 +421,24 @@ func (st *viewState) defaultBlock(c *ui.Context, i int, tight bool, base spanSty
 		return st.table(c, i, base)
 	}
 	return ui.Box(c)
+}
+
+// alert builds a GitHub alert: a quote whose bar, icon and title take
+// its kind's color, its text the color of text.
+func (st *viewState) alert(c *ui.Context, i int, a parser.Alert, base spanStyle) ui.Element {
+	th := &st.th
+	color := th.Alerts[a-1]
+	q := ui.Column(c).BorderStartWidth(th.QuoteBarWidth).BorderColor(color).PaddingStart(th.em(0.85))
+	return q.Children(func() {
+		title := ui.Row(c).AlignItems(ui.Center).Gap(th.em(0.5)).TextColor(color).Margin(0, 0, th.em(th.ItemSpacing*2), 0)
+		title.Children(func() {
+			if icon := alertIcon(a); icon != nil {
+				ui.Icon(c, icon)
+			}
+			ui.Text(c, a.String()).FontWeight(th.StrongWeight)
+		})
+		st.blocks(c, i, false, base)
+	})
 }
 
 // fadeIn fades in a block revealed a moment ago: text fades by its
