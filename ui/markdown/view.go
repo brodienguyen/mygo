@@ -58,6 +58,12 @@ type Options struct {
 	// they show as text. It is asked as paragraphs build, so it looks up
 	// what the app has at hand: paragraphs follow when its answers change.
 	Resolve func(in parser.Inline) (dest string, ok bool)
+	// Preview, when set, returns what shows while the pointer rests on a
+	// link to dest, a mention's or a reference's included: a function
+	// filling the tip, as ui.TooltipBase does, or nil for the address
+	// alone. It runs as the view builds, so it shows what the app has at
+	// hand, fetching the rest in the background.
+	Preview func(c *ui.Context, dest string) func(tip ui.Element)
 	// LoadImage loads the image at url, on a goroutine of its own, for the
 	// views to show; until it has, they show its description. Without
 	// it, images show as their descriptions. FileImages loads files.
@@ -597,6 +603,12 @@ func (st *viewState) link(c *ui.Context, in *parser.Inline, children func()) {
 	}
 	l.TextColor(st.th.Link)
 	l.Children(children)
+	if st.o.Preview != nil && !in.Pending && dest != "" {
+		if fill := st.o.Preview(c, dest); fill != nil {
+			ui.TooltipBase(c, l, fill)
+			return
+		}
+	}
 	switch {
 	case in.Title != "":
 		l.Tooltip(in.Title)

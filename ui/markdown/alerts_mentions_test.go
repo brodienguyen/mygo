@@ -2,7 +2,9 @@ package markdown
 
 import (
 	"slices"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/markdown/parser"
@@ -66,5 +68,35 @@ func TestViewMentions(t *testing.T) {
 	tt = ui.NewTester(func(c *ui.Context) { View(c, src, nil) }, 600, 400)
 	if !tt.HasText(src) {
 		t.Errorf("not one text: %q", tt.Texts())
+	}
+}
+
+func TestViewPreview(t *testing.T) {
+	r := &resolver{known: []string{"octocat"}}
+	var asked []string
+	o := &Options{Resolve: r.resolve, Preview: func(c *ui.Context, dest string) func(tip ui.Element) {
+		asked = append(asked, dest)
+		if !strings.HasPrefix(dest, "/users/") {
+			return nil
+		}
+		return func(tip ui.Element) {
+			tip.Padding(8).Children(func() { ui.Text(c, "The Octocat") })
+		}
+	}}
+	tt := ui.NewTester(func(c *ui.Context) { View(c, "Hi @octocat, see [docs](https://go.dev).", o) }, 600, 400)
+	at, ok := tt.Find("@octocat")
+	if !ok {
+		t.Fatalf("no @octocat in %q", tt.Texts())
+	}
+	tt.Move(at.X+at.W/2, at.Y+at.H/2)
+	for range 10 {
+		tt.Advance(100 * time.Millisecond)
+		tt.Frame()
+	}
+	if !tt.HasText("The Octocat") {
+		t.Errorf("no card while the pointer rests: %q", tt.Texts())
+	}
+	if !slices.Contains(asked, "https://go.dev") {
+		t.Errorf("Preview not asked of every link: %q", asked)
 	}
 }
