@@ -121,3 +121,19 @@ func TestViewPreview(t *testing.T) {
 		t.Errorf("Preview not asked of every link: %q", asked)
 	}
 }
+
+// Part of a mention written with an entity copies as that part of its
+// source, as text does.
+func TestViewCopyMentionEntity(t *testing.T) {
+	src := "Thanks &#64;octocat now"
+	_, get := rvView(&src, nil)
+	st := get()
+	k := rvElemOf(t, st, 1)
+	text := rvParaText(st, 1)
+	if text != "Thanks @octocat now" {
+		t.Fatalf("text %q", text)
+	}
+	if got := st.copyMarkdown([]ui.SelectedText{rvPart(st, k, text, 8, 12)}); got != "octo" {
+		t.Errorf("copied %q, want %q", got, "octo")
+	}
+}

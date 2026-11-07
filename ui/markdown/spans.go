@@ -258,6 +258,16 @@ func (sb *spanBuilder) addSpan(text string, src, end int, exact bool, s spanStyl
 	sb.p.runes += utf8.RuneCountInString(text)
 }
 
+// addText adds the text of inline n, exact when it is its source's
+// bytes, else aligned with them, as an escape or an entity is.
+func (sb *spanBuilder) addText(n *parser.Inline, exact bool, s spanStyle, link int) {
+	if exact {
+		sb.add(n.Text, n.Start, n.End, true, s, link)
+	} else {
+		sb.addAligned(n.Text, n.Start, n.End, s, link)
+	}
+}
+
 func (sb *spanBuilder) inlines(from, to int, s spanStyle) {
 	in := sb.in
 	link := -1
@@ -268,11 +278,8 @@ func (sb *spanBuilder) inlines(from, to int, s spanStyle) {
 		n := &in[k]
 		switch n.Kind {
 		case parser.Text:
-			if n.End-n.Start == len(n.Text) && sb.d.Source()[n.Start:n.End] == n.Text {
-				sb.add(n.Text, n.Start, n.End, true, sb.htmlStyle(s), link)
-			} else {
-				sb.addAligned(n.Text, n.Start, n.End, sb.htmlStyle(s), link)
-			}
+			exact := n.End-n.Start == len(n.Text) && sb.d.Source()[n.Start:n.End] == n.Text
+			sb.addText(n, exact, sb.htmlStyle(s), link)
 		case parser.SoftBreak:
 			sb.add(" ", n.Start, n.End, false, s, link)
 		case parser.LineBreak:
@@ -289,7 +296,7 @@ func (sb *spanBuilder) inlines(from, to int, s spanStyle) {
 			sb.p.refs = append(sb.p.refs, k)
 			sb.p.resolved = append(sb.p.resolved, dest)
 			if dest == "" || s.inLink {
-				sb.add(n.Text, n.Start, n.End, exact, sb.htmlStyle(s), link)
+				sb.addText(n, exact, sb.htmlStyle(s), link)
 				continue
 			}
 			cs := sb.htmlStyle(s)
@@ -298,7 +305,7 @@ func (sb *spanBuilder) inlines(from, to int, s spanStyle) {
 				// As GitHub shows them.
 				cs.weight = sb.th.StrongWeight
 			}
-			sb.add(n.Text, n.Start, n.End, exact, cs, k)
+			sb.addText(n, exact, cs, k)
 			sb.cur.dest = dest
 		case parser.Code:
 			cs := sb.htmlStyle(s)
