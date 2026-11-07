@@ -32,6 +32,9 @@ func (w *htmlWriter) cr() {
 
 func (w *htmlWriter) blocks(parent int) {
 	for i := range w.d.Children(parent) {
+		if b := w.d.Block(i); b.Kind == Paragraph && b.segB == b.segA {
+			continue // an alert's marker
+		}
 		w.block(i)
 	}
 }

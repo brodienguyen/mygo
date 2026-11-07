@@ -47,7 +47,8 @@ type blockState struct {
 	mathBracket bool
 	mathDone    bool
 	// alert is a quote's alert whose marker is all its first paragraph
-	// holds: the quote is an alert once a block follows it.
+	// holds: the quote is an alert if a block follows it (see
+	// alertQuote).
 	alert Alert
 }
 
@@ -579,14 +580,6 @@ func (p *blockParser) addChild(parent int, kind Kind, start int) int {
 		parent = p.finalize(parent)
 	}
 	d := p.d
-	if pb := &d.blocks[parent]; pb.parse.alert != NoAlert && pb.Alert == NoAlert {
-		// A block follows an alert's marker alone in its paragraph: the
-		// marker was the alert's, not text.
-		if last := len(d.blocks) - 1; int(pb.parse.lastChild) == last && d.blocks[last].Kind == Paragraph {
-			pb.Alert = pb.parse.alert
-			p.removeLast(last)
-		}
-	}
 	i := len(d.blocks)
 	n := int32(len(d.segs))
 	d.blocks = append(d.blocks, Block{Kind: kind, Parent: parent, Start: start, End: start, Next: i + 1, textS: -1, segA: n, segB: n, segMark: n})
@@ -697,6 +690,10 @@ func (p *blockParser) finalize(i int) int {
 		if b.parse.lastChild < 0 {
 			b.End = b.Start + 1
 		}
+	case Quote:
+		if b.parse.alert != NoAlert {
+			p.alertQuote(i)
+		}
 	}
 	if parent >= 0 {
 		pb := &d.blocks[parent]
@@ -708,8 +705,8 @@ func (p *blockParser) finalize(i int) int {
 // alertMarker reads the first line of paragraph i, the first block of a
 // top-level quote, as GitHub does an alert's marker: [!NOTE] alone on
 // it makes the quote an alert, its text the lines after. A marker alone
-// in its paragraph waits for a block after it (see addChild), as a quote
-// of the marker alone is no alert.
+// in its paragraph waits for the quote to end (see alertQuote), as a
+// quote of the marker alone is no alert.
 func (p *blockParser) alertMarker(i int) {
 	d := p.d
 	b := &d.blocks[i]
@@ -730,6 +727,30 @@ func (p *blockParser) alertMarker(i int) {
 	b.text, b.textS = "", -1
 	b.Start = int(d.segs[b.segA].start)
 	d.blocks[q].Alert = a
+}
+
+// alertQuote makes quote i, whose first paragraph is an alert's marker
+// alone, the alert if a block other than a footnote's definition follows
+// the marker, or, while streaming, if the quote is still being written.
+// The marker's paragraph stays, without lines, which shows nothing.
+func (p *blockParser) alertQuote(i int) {
+	d := p.d
+	q := &d.blocks[i]
+	m := i + 1
+	if m >= q.Next || d.blocks[m].Kind != Paragraph || d.blocks[m].segB-d.blocks[m].segA != 1 {
+		return
+	}
+	follows := d.streaming && q.Open
+	for j := d.blocks[m].Next; j < q.Next && !follows; j = d.blocks[j].Next {
+		follows = d.blocks[j].Kind != FootnoteDefinition
+	}
+	if !follows {
+		return
+	}
+	q.Alert = q.parse.alert
+	mb := &d.blocks[m]
+	mb.segB = mb.segA
+	mb.text, mb.textS = "", -1
 }
 
 func (p *blockParser) firstChild(i int) int {

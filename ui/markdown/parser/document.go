@@ -186,7 +186,9 @@ type Block struct {
 	// Header tells a table's header row.
 	Header bool
 	// Alert is the kind of a block quote that is a GitHub alert, its
-	// [!NOTE] line not in its text (ExtAlerts).
+	// [!NOTE] line not in its text (ExtAlerts): a marker alone in its
+	// paragraph leaves a paragraph without lines (LineCount 0), which
+	// shows nothing.
 	Alert Alert
 	// Align is the alignment of a table's columns.
 	Align []Align

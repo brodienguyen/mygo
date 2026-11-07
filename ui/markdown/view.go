@@ -324,7 +324,8 @@ func (st *viewState) blocks(c *ui.Context, parent int, tight bool, base spanStyl
 	prevHeading := 0
 	for j := parent + 1; j < d.Block(parent).Next; j = d.Block(j).Next {
 		b := d.Block(j)
-		if b.Kind == parser.FootnoteDefinition {
+		if b.Kind == parser.FootnoteDefinition || b.Kind == parser.Paragraph && d.LineCount(j) == 0 {
+			// Footnotes show at the end, and an alert's marker not at all.
 			continue
 		}
 		top := float32(0)

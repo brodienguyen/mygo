@@ -20,6 +20,11 @@ func TestViewAlert(t *testing.T) {
 	if tt.HasText("[!WARNING]") {
 		t.Errorf("the marker shows: %q", tt.Texts())
 	}
+	// A marker alone in its paragraph shows nothing either.
+	tt = ui.NewTester(func(c *ui.Context) { View(c, "> [!TIP]\n>\n> - one", nil) }, 600, 400)
+	if !tt.HasText("Tip") || tt.HasText("[!TIP]") {
+		t.Errorf("got %q", tt.Texts())
+	}
 }
 
 // resolver knows octocat and issue 12 of the document's repository, as

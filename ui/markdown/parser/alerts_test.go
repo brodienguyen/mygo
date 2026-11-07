@@ -1,6 +1,9 @@
 package parser
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // The cases are GitHub's, as its Markdown API rendered them.
 func TestAlerts(t *testing.T) {
@@ -28,6 +31,10 @@ func TestAlerts(t *testing.T) {
 		{"nested in a quote", "> > [!NOTE]\n> > Body.", quote(quote("<p>[!NOTE]\nBody.</p>\n"))},
 		{"in a list", "- item\n\n  > [!NOTE]\n  > Body.", "<ul>\n<li>\n<p>item</p>\n" + quote("<p>[!NOTE]\nBody.</p>\n") + "</li>\n</ul>\n"},
 		{"after a paragraph", "> a\n> [!NOTE]\n> Body.", quote("<p>a\n[!NOTE]\nBody.</p>\n")},
+		{"a marker after the marker", "> [!NOTE]\n>\n> [!TIP]\n> x", alert("note", "Note", "<p>[!TIP]\nx</p>\n")},
+		{"a definition after the marker", "> [!NOTE]\n>\n> [a]: /u", quote("<p>[!NOTE]</p>\n")},
+		{"a footnote after the marker", "> [!NOTE]\n> [^1]: x\n\ny[^1]", quote("<p>[!NOTE]</p>\n") + "<p>y<sup class=\"footnote-ref\"><a href=\"#fn-1\" id=\"fnref-1\" data-footnote-ref>1</a></sup></p>\n" +
+			"<section class=\"footnotes\" data-footnotes>\n<ol>\n<li id=\"fn-1\">\n<p>x</p>\n<a href=\"#fnref-1\" class=\"footnote-backref\">↩</a>\n</li>\n</ol>\n</section>\n"},
 	} {
 		d := New(Default)
 		d.Set(c.src)
@@ -63,6 +70,25 @@ func TestAlertStreaming(t *testing.T) {
 	d.SetStreaming(false)
 	if got, w := d.HTML(), want.HTML(); got != w {
 		t.Errorf("streamed\n%s\nwant\n%s", got, w)
+	}
+}
+
+// While streaming, a marker alone shows as the alert its quote will
+// most likely become; once the text is complete, it is text as GitHub
+// has it.
+func TestAlertMarkerStreaming(t *testing.T) {
+	d := New(Default)
+	d.SetStreaming(true)
+	d.Set("> [!WARNING]")
+	if q := d.Block(1); q.Kind != Quote || q.Alert != AlertWarning {
+		t.Errorf("streaming: %v, alert %v", q.Kind, q.Alert)
+	}
+	if got := d.HTML(); strings.Contains(got, "[!WARNING]") {
+		t.Errorf("the marker shows while streaming: %s", got)
+	}
+	d.SetStreaming(false)
+	if q := d.Block(1); q.Alert != NoAlert {
+		t.Errorf("complete: alert %v in %s", q.Alert, d.HTML())
 	}
 }
 
