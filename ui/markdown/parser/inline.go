@@ -168,6 +168,9 @@ type inlineParser struct {
 	// nothing closes up to the end of the text, or -1.
 	openMath, hide, openDollar int
 	labels                     []string
+	// refBytes are which bytes that may start a mention or a reference
+	// the text holds (referenceBytes).
+	refBytes uint8
 	// leftover are the openers no closer matched, for healing.
 	leftover []delim
 	probe    bool
@@ -226,7 +229,7 @@ func (ip *inlineParser) run(s string) {
 	if ip.ext&ExtAutolinks != 0 && strings.IndexByte(s, '@') >= 0 {
 		ip.emailLinks(0, false)
 	}
-	if ip.ext&(ExtMentions|ExtReferences) != 0 && mayReference(s) {
+	if ip.refBytes = referenceBytes(s, ip.ext); ip.refBytes != 0 {
 		ip.references(0, 0)
 	}
 	ip.d.steps += ip.html.steps

@@ -97,10 +97,14 @@ func skipElement(tag string) int {
 // which a word precedes when prevWord, and returns the last node of the
 // text.
 func (ip *inlineParser) splitReferences(c int32, prevWord bool) int32 {
+	// The text's @, # and - are found once each, as offsets in the text
+	// whose rest each split leaves: origin is where node c's text starts.
+	sc := refScan{next: [3]int{-1, -1, -1}, has: ip.refBytes}
+	origin := 0
 	for {
 		nd := &ip.nodes[c]
 		data := nd.text
-		a, b, kind, steps := findReference(data, prevWord, ip.ext)
+		a, b, kind, steps := findReference(data, origin, &sc, prevWord, ip.ext)
 		ip.d.steps += steps
 		if kind == Text {
 			return c
@@ -116,13 +120,22 @@ func (ip *inlineParser) splitReferences(c int32, prevWord bool) int32 {
 		ip.insertAfter(c, r)
 		ip.insertAfter(r, post)
 		c, prevWord = post, endsInWord(data[:b])
+		origin += b
 	}
 }
 
-// findReference finds the first mention or reference in data, which a
-// word character precedes when prevWord: its bytes and kind, or Text when
-// there is none, and the bytes it scanned.
-func findReference(data string, prevWord bool, ext Extensions) (a, b int, kind InlineKind, steps int) {
+// refScan is where the next @, # and - of a text are, as offsets in it,
+// -1 before they are looked for, and the text's length when there is none
+// or the paragraph has none (has, as referenceBytes returns).
+type refScan struct {
+	next [3]int
+	has  uint8
+}
+
+// findReference finds the first mention or reference in data, the text
+// from origin on, which a word character precedes when prevWord: its
+// bytes and kind, or Text when there is none, and the bytes it scanned.
+func findReference(data string, origin int, sc *refScan, prevWord bool, ext Extensions) (a, b int, kind InlineKind, steps int) {
 	mentions, refs := ext&ExtMentions != 0, ext&ExtReferences != 0
 	wordBefore := func(i int) bool {
 		if i == 0 {
@@ -130,13 +143,34 @@ func findReference(data string, prevWord bool, ext Extensions) (a, b int, kind I
 		}
 		return endsInWord(data[:i])
 	}
-	for i := 0; i < len(data); i++ {
-		j := strings.IndexAny(data[i:], "@#-")
-		if j < 0 {
-			return 0, 0, Text, steps + len(data) - i
+	// The next @, # and - at or after i, each found with the vectorized
+	// IndexByte, which IndexAny is not, and kept across the text's splits.
+	find := func(k int, c byte, i int) int {
+		if sc.next[k] < origin+i {
+			if j := strings.IndexByte(data[i:], c); j < 0 {
+				sc.next[k] = origin + len(data)
+			} else {
+				sc.next[k] = origin + i + j
+			}
+			steps += sc.next[k] - origin - i
 		}
-		steps += j + 1
-		i += j
+		return sc.next[k] - origin
+	}
+	for i := 0; i < len(data); i++ {
+		j := len(data)
+		if sc.has&hasAt != 0 {
+			j = find(0, '@', i)
+		}
+		if sc.has&hasHash != 0 {
+			j = min(j, find(1, '#', i))
+		}
+		if sc.has&hasGH != 0 {
+			j = min(j, find(2, '-', i))
+		}
+		if j == len(data) {
+			return 0, 0, Text, steps
+		}
+		i = j
 		switch data[i] {
 		case '@':
 			if mentions && !wordBefore(i) {
@@ -270,16 +304,33 @@ func isGH(data string, i int) bool {
 	return i >= 2 && data[i-2]|0x20 == 'g' && data[i-1]|0x20 == 'h'
 }
 
-// mayReference reports whether s may hold a mention or a reference: an
-// @, a # or GH-, so that text without one is not scanned again.
-func mayReference(s string) bool {
+// Which of a text's bytes may start a mention or a reference, as
+// referenceBytes finds them.
+const (
+	hasAt   = 1 << iota // @, of a mention
+	hasHash             // #, of a reference
+	hasGH               // the - of GH-
+)
+
+// referenceBytes returns which bytes that may start a mention or a
+// reference s holds, of those ext reads, so that text without them is not
+// scanned again, nor scanned for those it lacks.
+func referenceBytes(s string, ext Extensions) uint8 {
+	var has uint8
 	// IndexByte is vectorized, which ContainsAny is not.
-	if strings.IndexByte(s, '@') >= 0 || strings.IndexByte(s, '#') >= 0 {
-		return true
+	if ext&ExtMentions != 0 && strings.IndexByte(s, '@') >= 0 {
+		has |= hasAt
+	}
+	if ext&ExtReferences == 0 {
+		return has
+	}
+	if strings.IndexByte(s, '#') >= 0 {
+		has |= hasHash
 	}
 	for i := strings.IndexByte(s, '-'); i >= 0; {
 		if isGH(s, i) {
-			return true
+			has |= hasGH
+			break
 		}
 		j := strings.IndexByte(s[i+1:], '-')
 		if j < 0 {
@@ -287,7 +338,7 @@ func mayReference(s string) bool {
 		}
 		i += 1 + j
 	}
-	return false
+	return has
 }
 
 func isASCIIAlnum(c byte) bool { return isASCIIDigit(c) || isASCIILetter(c) }
