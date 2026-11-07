@@ -50,6 +50,14 @@ type Options struct {
 	// AnchorVersion scrolls to Anchor again when it changes, for the same
 	// heading asked for twice.
 	AnchorVersion uint64
+	// Resolve, when set, makes mentions (@octocat) and references to
+	// issues and pull requests (#123) links: it returns where one goes,
+	// which OnLink, or else the router or a ui.Link, opens, as a path of
+	// the app's to open it in place, or false to leave it text, as
+	// GitHub does for a person or an issue it does not know. Without it,
+	// they show as text. It is asked as paragraphs build, so it looks up
+	// what the app has at hand: paragraphs follow when its answers change.
+	Resolve func(in parser.Inline) (dest string, ok bool)
 	// LoadImage loads the image at url, on a goroutine of its own, for the
 	// views to show; until it has, they show its description. Without
 	// it, images show as their descriptions. FileImages loads files.
@@ -467,7 +475,7 @@ func (st *viewState) para(i int, base spanStyle) *para {
 	st.doc.Inlines(i) // their revision
 	pc := &st.paras[i]
 	fading := st.fade != nil && st.fade(max(b.End-1, b.Start)) < 1
-	if pc.ok && pc.start == b.Start && pc.end == b.End && pc.kind == b.Kind && pc.rev == b.Revision() && pc.base == base && !pc.p.fading && !fading && !b.Healed() {
+	if pc.ok && pc.start == b.Start && pc.end == b.End && pc.kind == b.Kind && pc.rev == b.Revision() && pc.base == base && !pc.p.fading && !fading && !b.Healed() && st.sameResolved(i, pc.p.resolved) {
 		return &pc.p
 	}
 	pc.start, pc.end, pc.kind, pc.rev, pc.base, pc.ok = b.Start, b.End, b.Kind, b.Revision(), base, true
@@ -477,8 +485,32 @@ func (st *viewState) para(i int, base spanStyle) *para {
 	sb.notes = st.noteNumber
 	sb.math = st.o.InlineMath
 	sb.linkIcon = st.o.LinkIcon
+	sb.resolve = st.o.Resolve
 	sb.build(&pc.p, base)
 	return &pc.p
+}
+
+// sameResolved reports whether the mentions and references of block i
+// resolve where they did, as a paragraph built resolved them.
+func (st *viewState) sameResolved(i int, resolved []string) bool {
+	if st.o.Resolve == nil || len(resolved) == 0 {
+		return true
+	}
+	k := 0
+	for _, in := range st.doc.Inlines(i) {
+		if in.Kind != parser.Mention && in.Kind != parser.Reference {
+			continue
+		}
+		dest, ok := st.o.Resolve(in)
+		if !ok {
+			dest = ""
+		}
+		if k >= len(resolved) || resolved[k] != dest {
+			return false
+		}
+		k++
+	}
+	return k == len(resolved)
 }
 
 // paragraph builds the text of block i: a paragraph, a heading or a cell.
@@ -530,6 +562,10 @@ func (st *viewState) piece(c *ui.Context, block int, pc *piece) {
 		}
 	default:
 		in := st.doc.Inlines(block)[pc.link]
+		if pc.dest != "" {
+			// A mention or a reference, which Options.Resolve made a link.
+			in.Dest, in.Auto = pc.dest, true
+		}
 		st.link(c, &in, func() { ui.RichText(c, pc.spans...) })
 	}
 }
