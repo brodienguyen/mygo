@@ -21,7 +21,7 @@ const (
 // Login returns whom a Mention mentions: a login, as octocat, or a team,
 // as github/docs.
 func (in Inline) Login() string {
-	if in.Kind != Mention {
+	if in.Kind != Mention || in.Text == "" {
 		return ""
 	}
 	return in.Text[1:]
@@ -34,6 +34,9 @@ func (in Inline) Ref() (repo string, number int) {
 		return "", 0
 	}
 	i := strings.LastIndexAny(in.Text, "#-")
+	if i < 0 {
+		return "", 0
+	}
 	if in.Text[i] == '#' {
 		repo = in.Text[:i]
 	}

@@ -95,4 +95,11 @@ func TestLoginAndRef(t *testing.T) {
 	if fmt.Sprint(got) != fmt.Sprint(want) {
 		t.Errorf("got %v, want %v", got, want)
 	}
+	// Inlines made by hand do not panic.
+	if login := (Inline{Kind: Mention}).Login(); login != "" {
+		t.Errorf("an empty mention's login is %q", login)
+	}
+	if repo, n := (Inline{Kind: Reference, Text: "x"}).Ref(); repo != "" || n != 0 {
+		t.Errorf("a reference without a number is %q, %d", repo, n)
+	}
 }
