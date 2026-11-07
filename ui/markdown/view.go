@@ -608,17 +608,22 @@ func (st *viewState) link(c *ui.Context, in *parser.Inline, children func()) {
 	}
 	l.TextColor(st.th.Link)
 	l.Children(children)
+	// What the tip says, which describes the link to assistive technology.
+	tip := in.Title
+	if tip == "" && !in.Auto && !in.Pending && dest != "" && !strings.HasPrefix(dest, "#") {
+		tip = dest
+	}
 	if st.o.Preview != nil && !in.Pending && dest != "" {
 		if fill := st.o.Preview(c, dest); fill != nil {
+			if tip != "" {
+				l.Description(tip)
+			}
 			ui.TooltipBase(c, l, fill)
 			return
 		}
 	}
-	switch {
-	case in.Title != "":
-		l.Tooltip(in.Title)
-	case !in.Auto && !in.Pending && dest != "" && !strings.HasPrefix(dest, "#"):
-		l.Tooltip(dest)
+	if tip != "" {
+		l.Tooltip(tip)
 	}
 }
 
