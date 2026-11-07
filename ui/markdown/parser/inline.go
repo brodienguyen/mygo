@@ -227,7 +227,7 @@ func (ip *inlineParser) run(s string) {
 		ip.emailLinks(0, false)
 	}
 	if ip.ext&(ExtMentions|ExtReferences) != 0 && mayReference(s) {
-		ip.references(0)
+		ip.references(0, 0)
 	}
 	ip.d.steps += ip.html.steps
 }

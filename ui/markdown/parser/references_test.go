@@ -44,6 +44,9 @@ func TestMentions(t *testing.T) {
 		{"@" + strings.Repeat("a", 39) + " @" + strings.Repeat("a", 40), "mention:@" + strings.Repeat("a", 39) + "@0"},
 		{"# Hi @octocat", "mention:@octocat@5"},
 		{"| @octocat |\n|---|", "mention:@octocat@2"},
+		{"_a_@octocat **b**@octocat", "mention:@octocat@3 mention:@octocat@17"},
+		{`<a href="u">@octocat</a> <code>@octocat</code> <b>@octocat</b> <br/>@octocat`, "mention:@octocat@50 mention:@octocat@68"},
+		{"<pre>\n@a</pre>", ""},
 	} {
 		if got := refsOf(t, Default, c.src); got != c.want {
 			t.Errorf("%q gives %q, want %q", c.src, got, c.want)
@@ -62,6 +65,8 @@ func TestReferences(t *testing.T) {
 		{"x.org/a/b#1 /a/b#1 _#874", ""},
 		{"`#1` [#1](u) *#1*", "reference:#1@14"},
 		{"#12345678901 #1234567890", "reference:#1234567890@13"},
+		{"_a_#1 me@x.com#2 #3#4", "reference:#1@3 reference:#2@14 reference:#3@17"},
+		{"<code>#1</code> <A HREF=u>#2</a> #3", "reference:#3@33"},
 	} {
 		if got := refsOf(t, Default, c.src); got != c.want {
 			t.Errorf("%q gives %q, want %q", c.src, got, c.want)

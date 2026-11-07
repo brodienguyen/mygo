@@ -42,30 +42,65 @@ func (in Inline) Ref() (repo string, number int) {
 }
 
 // references turns the mentions and references in the text of node n's
-// descendants into nodes of their own.
-func (ip *inlineParser) references(n int32) {
+// descendants into nodes of their own, but in links and images, and in
+// raw HTML's a, code, pre, style and script elements, as GitHub does.
+// open counts those elements open before n's first child; it returns
+// how many are open after its last.
+func (ip *inlineParser) references(n int32, open int) int {
 	for c := ip.nodes[n].first; c >= 0; c = ip.nodes[c].next {
-		switch ip.nodes[c].kind {
+		nd := &ip.nodes[c]
+		switch nd.kind {
 		case Link, Image:
+		case HTML:
+			open = max(open+skipElement(nd.text), 0)
 		case Text:
-			ip.splitReferences(c)
+			if open == 0 {
+				// A text's start is a word's start unless text before it
+				// ends in a word, as formatting ends none (_a_#1).
+				prev := nd.prev >= 0 && ip.nodes[nd.prev].kind == Text && endsInWord(ip.nodes[nd.prev].text)
+				c = ip.splitReferences(c, prev)
+			}
 		default:
-			ip.references(c)
+			open = ip.references(c, open)
 		}
 	}
+	return open
 }
 
-// splitReferences splits text node c at its mentions and references.
-func (ip *inlineParser) splitReferences(c int32) {
-	nd := &ip.nodes[c]
-	prevWord := nd.start > 0 && endsInWord(ip.s[:min(nd.start, len(ip.s))])
+// skipElement returns 1 for raw HTML opening an element whose text has
+// no mentions or references, -1 for HTML closing one, else 0.
+func skipElement(tag string) int {
+	closing := strings.HasPrefix(tag, "</")
+	name := strings.TrimPrefix(strings.TrimPrefix(tag, "<"), "/")
+	end := 0
+	for end < len(name) && isASCIIAlnum(name[end]) {
+		end++
+	}
+	switch strings.ToLower(name[:end]) {
+	case "a", "code", "pre", "style", "script":
+	default:
+		return 0
+	}
+	switch {
+	case closing:
+		return -1
+	case strings.HasSuffix(tag, "/>"):
+		return 0
+	}
+	return 1
+}
+
+// splitReferences splits text node c at its mentions and references,
+// which a word precedes when prevWord, and returns the last node of the
+// text.
+func (ip *inlineParser) splitReferences(c int32, prevWord bool) int32 {
 	for {
-		nd = &ip.nodes[c]
+		nd := &ip.nodes[c]
 		data := nd.text
 		a, b, kind, steps := findReference(data, prevWord, ip.ext)
 		ip.d.steps += steps
 		if kind == Text {
-			return
+			return c
 		}
 		source := ip.s[nd.start:min(nd.end, len(ip.s))]
 		start, end := nd.start, nd.end
