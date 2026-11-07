@@ -226,7 +226,7 @@ func (ip *inlineParser) run(s string) {
 	if ip.ext&ExtAutolinks != 0 && strings.IndexByte(s, '@') >= 0 {
 		ip.emailLinks(0, false)
 	}
-	if ip.ext&(ExtMentions|ExtReferences) != 0 && strings.ContainsAny(s, "@#-") {
+	if ip.ext&(ExtMentions|ExtReferences) != 0 && mayReference(s) {
 		ip.references(0)
 	}
 	ip.d.steps += ip.html.steps

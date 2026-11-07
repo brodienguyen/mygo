@@ -93,7 +93,7 @@ func findReference(data string, prevWord bool, ext Extensions) (a, b int, kind I
 		return endsInWord(data[:i])
 	}
 	for i := 0; i < len(data); i++ {
-		j := strings.IndexAny(data[i:], "@#Gg")
+		j := strings.IndexAny(data[i:], "@#-")
 		if j < 0 {
 			return 0, 0, Text, steps + len(data) - i
 		}
@@ -122,10 +122,10 @@ func findReference(data string, prevWord bool, ext Extensions) (a, b int, kind I
 			if e := scanNumber(data, i+1); e > 0 {
 				return from, e, Reference, steps + e - i
 			}
-		default: // GH-123
-			if refs && i+2 < len(data) && data[i+1]|0x20 == 'h' && data[i+2] == '-' && !wordBefore(i) {
-				if e := scanNumber(data, i+3); e > 0 {
-					return i, e, Reference, steps + e - i
+		default: // GH-123, found at its hyphen, as letters are many
+			if refs && isGH(data, i) && !wordBefore(i-2) {
+				if e := scanNumber(data, i+1); e > 0 {
+					return i - 2, e, Reference, steps + e - i
 				}
 			}
 		}
@@ -225,6 +225,31 @@ func endsInWord(s string) bool {
 func startsWithWord(s string) bool {
 	r, _ := utf8.DecodeRuneInString(s)
 	return s != "" && isWordRune(r)
+}
+
+// isGH reports whether data[i], a hyphen, follows GH, in any case.
+func isGH(data string, i int) bool {
+	return i >= 2 && data[i-2]|0x20 == 'g' && data[i-1]|0x20 == 'h'
+}
+
+// mayReference reports whether s may hold a mention or a reference: an
+// @, a # or GH-, so that text without one is not scanned again.
+func mayReference(s string) bool {
+	// IndexByte is vectorized, which ContainsAny is not.
+	if strings.IndexByte(s, '@') >= 0 || strings.IndexByte(s, '#') >= 0 {
+		return true
+	}
+	for i := strings.IndexByte(s, '-'); i >= 0; {
+		if isGH(s, i) {
+			return true
+		}
+		j := strings.IndexByte(s[i+1:], '-')
+		if j < 0 {
+			break
+		}
+		i += 1 + j
+	}
+	return false
 }
 
 func isASCIIAlnum(c byte) bool { return isASCIIDigit(c) || isASCIILetter(c) }
