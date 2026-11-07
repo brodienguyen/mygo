@@ -33,9 +33,16 @@ const (
 	Math
 	// FootnoteRef refers to the footnote labelled Text.
 	FootnoteRef
+	// Mention mentions a person or a team, written in Text as @octocat or
+	// @github/docs (ExtMentions); Login returns whom.
+	Mention
+	// Reference refers to an issue or a pull request, written in Text as
+	// #123, GH-123 or octocat/hello#123 (ExtReferences); Ref returns
+	// which.
+	Reference
 )
 
-var inlineNames = [...]string{"text", "soft break", "line break", "code", "emphasis", "strong", "strikethrough", "link", "image", "HTML", "math", "footnote reference"}
+var inlineNames = [...]string{"text", "soft break", "line break", "code", "emphasis", "strong", "strikethrough", "link", "image", "HTML", "math", "footnote reference", "mention", "reference"}
 
 func (k InlineKind) String() string {
 	if int(k) < len(inlineNames) {
@@ -48,8 +55,8 @@ func (k InlineKind) String() string {
 // order, an inline's children right after it, up to its Next.
 type Inline struct {
 	Kind InlineKind
-	// Text is the literal of Text, Code, HTML and Math, and the label of
-	// a FootnoteRef.
+	// Text is the literal of Text, Code, HTML and Math, the label of a
+	// FootnoteRef, and a Mention or a Reference as written.
 	Text string
 	// Dest and Title are a link's or an image's.
 	Dest, Title string
@@ -218,6 +225,9 @@ func (ip *inlineParser) run(s string) {
 	ip.joinTexts(0)
 	if ip.ext&ExtAutolinks != 0 && strings.IndexByte(s, '@') >= 0 {
 		ip.emailLinks(0, false)
+	}
+	if ip.ext&(ExtMentions|ExtReferences) != 0 && strings.ContainsAny(s, "@#-") {
+		ip.references(0)
 	}
 	ip.d.steps += ip.html.steps
 }

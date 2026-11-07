@@ -34,12 +34,21 @@ const (
 	// first line is [!NOTE], [!TIP], [!IMPORTANT], [!WARNING] or
 	// [!CAUTION] alone, followed by its text (Block.Alert).
 	ExtAlerts
+	// ExtMentions are GitHub's mentions of people and teams, as @octocat
+	// and @github/docs, in text outside code and links (Mention).
+	ExtMentions
+	// ExtReferences are GitHub's references to issues and pull requests,
+	// as #123, GH-123 and octocat/hello#123, in text outside code and
+	// links (Reference).
+	ExtReferences
 
 	// GFM is GitHub Flavored Markdown, as its spec has it.
 	GFM = ExtTables | ExtTaskLists | ExtStrikethrough | ExtAutolinks
 	// Default is GitHub Flavored Markdown with footnotes and math, as
-	// language models write it, and the alerts of GitHub's comments.
-	Default = GFM | ExtFootnotes | ExtMath | ExtAlerts
+	// language models write it, and the alerts, mentions and references
+	// of GitHub's comments. Mentions and references are text until a
+	// view resolves them.
+	Default = GFM | ExtFootnotes | ExtMath | ExtAlerts | ExtMentions | ExtReferences
 )
 
 // Kind is what a block is.

@@ -226,7 +226,9 @@ func (w *htmlWriter) inline(in []Inline, from, to int) {
 	for k := from; k < to; k = in[k].Next {
 		n := &in[k]
 		switch n.Kind {
-		case Text:
+		case Text, Mention, Reference:
+			// Mentions and references are links only where a host
+			// resolves them.
 			escapeHTML(&w.b, n.Text)
 		case SoftBreak:
 			w.b.WriteString("\n")
@@ -326,7 +328,7 @@ func PlainText(in []Inline) string {
 	var b strings.Builder
 	for k := range in {
 		switch n := &in[k]; n.Kind {
-		case Text, Code, HTML, Math:
+		case Text, Code, HTML, Math, Mention, Reference:
 			b.WriteString(n.Text)
 		case SoftBreak, LineBreak:
 			b.WriteByte(' ')
