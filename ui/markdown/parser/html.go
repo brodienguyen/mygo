@@ -92,6 +92,16 @@ func (w *htmlWriter) block(i int) {
 		w.b.WriteString("</div>\n")
 	case Quote:
 		w.cr()
+		if a := b.Alert; a != NoAlert {
+			// As GitHub writes alerts, without its icons.
+			name := strings.ToLower(a.String())
+			w.b.WriteString(`<div class="markdown-alert markdown-alert-` + name + `">` + "\n")
+			w.b.WriteString(`<p class="markdown-alert-title">` + a.String() + "</p>\n")
+			w.blocks(i)
+			w.cr()
+			w.b.WriteString("</div>\n")
+			break
+		}
 		w.b.WriteString("<blockquote>\n")
 		w.blocks(i)
 		w.cr()

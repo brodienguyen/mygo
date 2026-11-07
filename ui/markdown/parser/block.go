@@ -46,6 +46,9 @@ type blockState struct {
 	// $$, and mathDone one that ended.
 	mathBracket bool
 	mathDone    bool
+	// alert is a quote's alert whose marker is all its first paragraph
+	// holds: the quote is an alert once a block follows it.
+	alert Alert
 }
 
 func (s *blockState) mathClose() string {
@@ -576,6 +579,14 @@ func (p *blockParser) addChild(parent int, kind Kind, start int) int {
 		parent = p.finalize(parent)
 	}
 	d := p.d
+	if pb := &d.blocks[parent]; pb.parse.alert != NoAlert && pb.Alert == NoAlert {
+		// A block follows an alert's marker alone in its paragraph: the
+		// marker was the alert's, not text.
+		if last := len(d.blocks) - 1; int(pb.parse.lastChild) == last && d.blocks[last].Kind == Paragraph {
+			pb.Alert = pb.parse.alert
+			p.removeLast(last)
+		}
+	}
 	i := len(d.blocks)
 	n := int32(len(d.segs))
 	d.blocks = append(d.blocks, Block{Kind: kind, Parent: parent, Start: start, End: start, Next: i + 1, textS: -1, segA: n, segB: n, segMark: n})
@@ -652,6 +663,9 @@ func (p *blockParser) finalize(i int) int {
 			p.removeLast(i)
 			return parent
 		}
+		if p.ext&ExtAlerts != 0 {
+			p.alertMarker(i)
+		}
 	case CodeBlock:
 		if !b.Fenced {
 			// Blank lines at the end are not the code's.
@@ -689,6 +703,33 @@ func (p *blockParser) finalize(i int) int {
 		pb.End = max(pb.End, b.End)
 	}
 	return parent
+}
+
+// alertMarker reads the first line of paragraph i, the first block of a
+// top-level quote, as GitHub does an alert's marker: [!NOTE] alone on
+// it makes the quote an alert, its text the lines after. A marker alone
+// in its paragraph waits for a block after it (see addChild), as a quote
+// of the marker alone is no alert.
+func (p *blockParser) alertMarker(i int) {
+	d := p.d
+	b := &d.blocks[i]
+	q := b.Parent
+	if q <= 0 || d.blocks[q].Kind != Quote || d.blocks[q].Parent != 0 || b.parse.prev >= 0 || b.segB == b.segA {
+		return
+	}
+	s := d.segs[b.segA]
+	a := alertOf(d.src[s.start:s.end])
+	if a == NoAlert {
+		return
+	}
+	if b.segB-b.segA == 1 {
+		d.blocks[q].parse.alert = a
+		return
+	}
+	b.segA++
+	b.text, b.textS = "", -1
+	b.Start = int(d.segs[b.segA].start)
+	d.blocks[q].Alert = a
 }
 
 func (p *blockParser) firstChild(i int) int {
