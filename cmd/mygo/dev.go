@@ -206,7 +206,13 @@ func devSign(c *Config, sign string) string {
 		return "-"
 	}
 	out, _ := exec.Command("security", "find-identity", "-v", "-p", "codesigning").Output()
-	hash, name := developmentIdentity(string(out), signingTeam(c.MacOS.SigningIdentity))
+	team := signingTeam(c.MacOS.SigningIdentity)
+	var teams map[string]string
+	if team != "" {
+		certs, _ := exec.Command("security", "find-certificate", "-a", "-p").Output()
+		teams = certificateTeams(certs)
+	}
+	hash, name := developmentIdentity(string(out), teams, team)
 	if hash == "" {
 		warnf("Signing the development app ad hoc: macOS asks again for its permissions and Keychain items after each build. An Apple Development certificate keeps them; Xcode makes one for an Apple ID, free, in Settings > Accounts > Manage Certificates")
 		return "-"

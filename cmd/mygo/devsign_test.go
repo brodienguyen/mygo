@@ -20,7 +20,7 @@ func TestDevelopmentIdentity(t *testing.T) {
 		{`  1) 0000000000000000000000000000000000000001 "Developer ID Application: Jane Doe (AAAA)"`, "AAAA", "", ""},
 		{"     0 valid identities found\n", "", "", ""},
 	} {
-		if hash, name := developmentIdentity(tt.out, tt.team); hash != tt.hash || name != tt.name {
+		if hash, name := developmentIdentity(tt.out, nil, tt.team); hash != tt.hash || name != tt.name {
 			t.Errorf("developmentIdentity(%q, %q) = %q, %q; want %q, %q", tt.out, tt.team, hash, name, tt.hash, tt.name)
 		}
 	}
