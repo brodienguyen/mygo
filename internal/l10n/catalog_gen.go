@@ -878,6 +878,22 @@ func (msgs Messages) Change() string {
 	return Catalog.Format(msgs.locale, "change", nil)
 }
 
+// LineActions says "Line actions"
+// in the language the app shows.
+//
+// What assistive technology calls the button at the end of a diff viewer's
+// line that opens a menu of actions on the line, or on the lines selected.
+func LineActions() string { return In(i18n.Locale()).LineActions() }
+
+// LineActions says "Line actions"
+// in the language of msgs.
+//
+// What assistive technology calls the button at the end of a diff viewer's
+// line that opens a menu of actions on the line, or on the lines selected.
+func (msgs Messages) LineActions() string {
+	return Catalog.Format(msgs.locale, "lineActions", nil)
+}
+
 // Line says "Line {n, number, ::group-off}"
 // in the language the app shows.
 //
