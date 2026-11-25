@@ -151,9 +151,12 @@ keystroke. Cmd+F8 and Shift+Cmd+F8 go to the next and previous changes
   click among the lines selected calls it with them all.
 - `LineMenu` shows a button at the right end of the line under the
   pointer, as github.com does, whose menu it fills with the actions on the
-  line, or on the lines selected when it is among them. While its menu
-  shows in the window, the button stays on its line as the pointer goes
-  on to others; a change's actions go left of it.
+  line, or on the lines selected when it is among them. The diff's own
+  items follow the app's: Copy copies the lines, Select All selects all
+  the side's text, and Expand up and Expand down reveal the unchanged
+  lines hidden nearest above and below them. While its menu shows in the
+  window, the button stays on its line as the pointer goes on to others;
+  a change's actions go left of it.
 - `Annotations` leave room under lines for what `RenderAnnotation` builds
   there, as the comments of a review, each as high as it asks; the other
   side of a split view leaves the room empty, so that the lines stay
