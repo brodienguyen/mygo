@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/egoist/mygo/internal/diff"
+	"github.com/egoist/mygo/internal/l10n"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -539,6 +541,14 @@ func (s *diffSide) buildBlocks(c *ui.Context, ed *editor) {
 			render(c, bar, &DiffHunkActions{Index: i, Hunk: DiffHunk{hk.A0, hk.A1, hk.B0, hk.B1}, d: d})
 		}
 	}
+	// A check box of each change's lines in view, over its change bar.
+	if d.LineChecks {
+		for i, hk := range d.model.hunks {
+			if top, bottom, ok := s.hunkSpan(ed, hk); ok && bottom >= y0 && top <= y1 {
+				s.buildHunkCheck(c, ed, i, hk, top, bottom)
+			}
+		}
+	}
 	// The gutter's button, on the line under the pointer.
 	if d.OnGutterButton != nil && !s.empty() && ed.pointerIn && ed.hoverLine >= 0 && ed.hoverLine < v.text.LineCount() && ed.pointer.X < ed.gutterW+40 {
 		g := h.geometry(ed.hoverLine)
@@ -557,4 +567,82 @@ func (s *diffSide) buildBlocks(c *ui.Context, ed *editor) {
 			})
 		}
 	}
+}
+
+// hunkSpan returns the heights of the content a change's lines show
+// from and to on the side, the deleted lines among them in a unified
+// view, and whether it shows lines of the change.
+func (s *diffSide) hunkSpan(ed *editor, hk diff.Hunk) (top, bottom float64, ok bool) {
+	d := s.d
+	h := &ed.view.heights
+	from, to := hk.B0, hk.B1
+	if s.old {
+		from, to = hk.A0, hk.A1
+	}
+	if !s.unified {
+		if to <= from || s.empty() {
+			return 0, 0, false
+		}
+		return h.geometry(from).rows, h.geometry(to - 1).below, true
+	}
+	// Above the new lines, the deleted.
+	if hk.A1 > hk.A0 {
+		top = d.deletedTop(hk.A0)
+		last := hk.A1 - 1
+		bottom = d.deletedTop(last) + float64(float32(d.oldView.heights.wraps.rows(last))*ed.view.lineHeight)
+	}
+	if to > from && !s.empty() {
+		if hk.A1 <= hk.A0 {
+			top = h.geometry(from).rows
+		}
+		bottom = h.geometry(to - 1).below
+	}
+	return top, bottom, bottom > top
+}
+
+// buildHunkCheck builds the check box of change i's lines over its
+// change bar, from height top to bottom of the content: a click checks
+// them all, or unchecks them when they all are.
+func (s *diffSide) buildHunkCheck(c *ui.Context, ed *editor, i int, hk diff.Hunk, top, bottom float64) {
+	d := s.d
+	var lines []DiffLineRange
+	if hk.A1 > hk.A0 {
+		lines = append(lines, DiffLineRange{Side: DiffOld, Start: hk.A0, End: hk.A1 - 1})
+	}
+	if hk.B1 > hk.B0 {
+		lines = append(lines, DiffLineRange{Side: DiffNew, Start: hk.B0, End: hk.B1 - 1})
+	}
+	checked, all := false, true
+	for _, r := range lines {
+		for l := r.Start; l <= r.End; l++ {
+			if d.lineChecked(r.Side, l) {
+				checked = true
+			} else {
+				all = false
+			}
+		}
+	}
+	// A shield, as the gutter button's, keeps the press from the editor's
+	// line check below it.
+	ui.Box(c).Key(fmt.Sprint("hunk check ", i)).Absolute().Left(0).Top(float32(top - ed.scrollY)).HandleInput(shield).Children(func() {
+		box := ui.ButtonBase(c).Size(6, float32(bottom-top)).Role(ui.RoleCheckBox).Label(l10n.In(c.Locale()).Change()).
+			Cursor(ui.CursorPointer).KeepFocus()
+		switch {
+		case all:
+			box.Checked(true)
+		case checked:
+			box.Mixed()
+		default:
+			box.Checked(false)
+		}
+		m := ed.theme.Modified
+		box.Draw(func(p *ui.Painter, r ui.Rect) {
+			if box.Hovered() {
+				p.Fill(r, m, 2)
+			}
+		})
+		if box.Clicked() && d.OnCheckLines != nil {
+			d.OnCheckLines(lines, !all)
+		}
+	})
 }

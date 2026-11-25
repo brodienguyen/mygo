@@ -2196,3 +2196,87 @@ func TestDiffViewerLineChecksPaint(t *testing.T) {
 }
 
 func absDiff(a, b uint8) int { return max(int(a), int(b)) - min(int(a), int(b)) }
+
+// Each side's change bar is a check box of the change's lines, both
+// sides': a click checks them all, or unchecks them once they all are,
+// and assistive technology hears how many are.
+func TestDiffViewerLineChecksHunk(t *testing.T) {
+	d := &DiffState{Old: NewBuffer("a\nb\nc\nd\ne\n"), New: NewBuffer("a\nB\nC\nD\ne\n"), Layout: DiffSplit, ExpandUnchanged: true}
+	var lc lineChecks
+	lc.attach(d)
+	tt := ui.NewTester(func(c *ui.Context) { DiffView(c, d).Fill() }, 800, 400)
+	tt.Frame()
+	ed := &d.eds[1]
+	box := func() ui.AccessInfo {
+		t.Helper()
+		// The new side's, after the old side's.
+		var found []ui.AccessInfo
+		for _, a := range tt.AccessAll() {
+			if a.Role == ui.RoleCheckBox && a.Name == "Change" {
+				found = append(found, a)
+			}
+		}
+		if len(found) != 2 {
+			t.Fatalf("%d check boxes of the change, want one a side", len(found))
+		}
+		return found[1]
+	}
+	b := box()
+	if b.Checked || b.Mixed {
+		t.Fatalf("an unchecked change's box: %+v", b)
+	}
+	g1, g3 := ed.view.heights.geometry(1), ed.view.heights.geometry(3)
+	if top, bottom := float64(b.Bounds.Y)+ed.scrollY, float64(b.Bounds.Y+b.Bounds.H)+ed.scrollY; top != g1.rows || bottom != g3.below {
+		t.Fatalf("the box spans %v to %v, want the change's lines, %v to %v", top, bottom, g1.rows, g3.below)
+	}
+	click := func() {
+		b := box()
+		tt.ClickAt(b.Bounds.X+b.Bounds.W/2, b.Bounds.Y+b.Bounds.H/2)
+		tt.Frame()
+	}
+	all := []DiffLineRange{{DiffOld, 1, 3}, {DiffNew, 1, 3}}
+	click()
+	if !reflect.DeepEqual(lc.reports, [][]DiffLineRange{all}) || !lc.sets[0] {
+		t.Fatalf("reported %+v %v, want %+v checked", lc.reports, lc.sets, all)
+	}
+	if b := box(); !b.Checked {
+		t.Fatalf("a checked change's box: %+v", b)
+	}
+	click()
+	if !slices.Equal(lc.reports[1], all) || lc.sets[1] {
+		t.Fatalf("reported %+v %v, want %+v unchecked", lc.reports[1], lc.sets[1], all)
+	}
+	// One line checked: partly, and a click checks them all.
+	lc.checked[[2]int{int(DiffNew), 2}] = true
+	tt.Frame()
+	if b := box(); !b.Mixed {
+		t.Fatalf("a change with one line checked: %+v", b)
+	}
+	click()
+	if !slices.Equal(lc.reports[2], all) || !lc.sets[2] {
+		t.Fatalf("reported %+v %v, want %+v checked", lc.reports[2], lc.sets[2], all)
+	}
+}
+
+// In a unified view the change's box spans its deleted lines and its
+// added lines.
+func TestDiffViewerLineChecksHunkUnified(t *testing.T) {
+	d := &DiffState{Old: NewBuffer("a\nb\nc\nd\ne\n"), New: NewBuffer("a\nX\nY\ne\n"), Layout: DiffUnified, ExpandUnchanged: true}
+	var lc lineChecks
+	lc.attach(d)
+	tt := ui.NewTester(func(c *ui.Context) { DiffView(c, d).Fill() }, 600, 400)
+	tt.Frame()
+	ed := &d.eds[1]
+	b, ok := tt.AccessByRole(ui.RoleCheckBox, "Change")
+	if !ok {
+		t.Fatal("no check box of the change")
+	}
+	g1, g2 := ed.view.heights.geometry(1), ed.view.heights.geometry(2)
+	if top, bottom := float64(b.Bounds.Y)+ed.scrollY, float64(b.Bounds.Y+b.Bounds.H)+ed.scrollY; top != g1.top || bottom != g2.below {
+		t.Fatalf("the box spans %v to %v, want the deleted lines' top %v to the added lines' bottom %v", top, bottom, g1.top, g2.below)
+	}
+	tt.ClickAt(b.Bounds.X+b.Bounds.W/2, b.Bounds.Y+2)
+	if want := []DiffLineRange{{DiffOld, 1, 3}, {DiffNew, 1, 2}}; len(lc.reports) != 1 || !slices.Equal(lc.reports[0], want) {
+		t.Fatalf("reported %+v, want %+v", lc.reports, want)
+	}
+}

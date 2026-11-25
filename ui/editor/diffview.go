@@ -94,7 +94,9 @@ type DiffState struct {
 	// the view while it is held above or below it. The lines show set as
 	// the drag goes; OnCheckLines reports them once it is released, in
 	// the order they show, for the app to check or uncheck them. Presses
-	// on unchanged lines are LineSelection's.
+	// on unchanged lines are LineSelection's. A click on a change's bar
+	// checks all its lines, old and new, or unchecks them when they all
+	// are; the bar is a check box, mixed while some are checked.
 	LineChecks   bool
 	LineChecked  func(side DiffSide, line int) bool
 	OnCheckLines func(lines []DiffLineRange, checked bool)
