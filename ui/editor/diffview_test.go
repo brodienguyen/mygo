@@ -442,7 +442,7 @@ func testDiffViewerLineMenu(t *testing.T, p ui.MenuPresentation) {
 	}
 	var got []choice
 	d := &DiffState{Old: NewBuffer("a\nb\nc\nd\ne\n"), New: NewBuffer("a\nB\nC\nD\ne\n"), Layout: DiffSplit, ExpandUnchanged: true,
-		LineSelection: true}
+		LineSelection: true, HunkActions: true}
 	d.LineMenu = func(m *ui.Menu, lines DiffLineRange) {
 		for _, item := range []string{"Comment", "Suggest change", "Copy"} {
 			if m.Item(item).Chosen() {
@@ -513,11 +513,16 @@ func testDiffViewerLineMenu(t *testing.T, p ui.MenuPresentation) {
 	tt.Release(x, mid(3))
 	choose(text, mid(2), "Suggest change", DiffLineRange{DiffNew, 1, 3})
 	choose(text, mid(4), "Copy", DiffLineRange{DiffNew, 4, 4})
-	// It draws a chevron: its ink, the button's middle third across, is
-	// lower in the middle than at the sides.
+	// The change's actions, on its first line, go left of the button.
 	tt.Move(text, mid(1))
 	tt.Frame()
 	btn, _ := button(mid(1))
+	keep, ok := tt.Find("Keep")
+	if !ok || keep.X+keep.W > btn.X {
+		t.Fatalf("Keep at %v, %v; the menu button at %v", keep, ok, btn)
+	}
+	// It draws a chevron: its ink, the button's middle third across, is
+	// lower in the middle than at the sides.
 	img := tt.Image()
 	sc := float32(img.Bounds().Dx()) / 800
 	bg := img.RGBAAt(int((btn.X+2)*sc), int((btn.Y+btn.H/2)*sc))
