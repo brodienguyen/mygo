@@ -144,8 +144,11 @@ keystroke. Cmd+F8 and Shift+Cmd+F8 go to the next and previous changes
   the gutter's left edge, checks all its lines, old and new, or unchecks
   them when they all are. `NoCheckMarks` leaves the boxes out: the checked
   lines' tinted numbers show what is checked, and are pressed alike.
-- `OnGutterButton` shows a + on the gutter of the line under the pointer,
-  as to comment on it, and is called with the line when it is clicked.
+- `OnGutterButton` shows a + in the gutter of the line under the pointer,
+  right of its number, as to comment on it, and is called with the line
+  when it is clicked. A drag from it selects the lines it goes over, on
+  the side it started on, and calls it with them once it is released; a
+  click among the lines selected calls it with them all.
 - `Annotations` leave room under lines for what `RenderAnnotation` builds
   there, as the comments of a review, each as high as it asks; the other
   side of a split view leaves the room empty, so that the lines stay
@@ -296,9 +299,9 @@ app.diff.RenderHunkActions = func(c *ui.Context, bar ui.Element, a *editor.DiffH
 - `DiffHunkActions` sit at the top right of the change under the pointer,
   or the caret's: `Index` and `Hunk` say which, and `Revert` and `Keep`
   act.
-- The gutter button is a button on the gutter of the line under the
-  pointer, which calls `OnGutterButton` when clicked; its render function
-  gives it a look and a label.
+- The gutter button is a button in the gutter of the line under the
+  pointer, right of its number, which calls `OnGutterButton` when clicked;
+  its render function gives it a look and a label.
 
 ## Patches
 
