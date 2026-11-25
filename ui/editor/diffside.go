@@ -82,7 +82,31 @@ func (s *diffSide) lineStyle(line int) lineLook {
 	if s.old {
 		side = DiffOld
 	}
-	return s.selectedLook(ed, side, line, st)
+	st = s.selectedLook(ed, side, line, st)
+	if s.hunkOf(line) >= 0 && !s.empty() {
+		st = s.checkLook(ed, side, line, st)
+	}
+	return st
+}
+
+// checkLook returns st with the check box of a changed line of side
+// (LineChecks), its gutter tinted when checked, as GitHub Desktop's.
+func (s *diffSide) checkLook(ed *editor, side DiffSide, line int, st lineLook) lineLook {
+	d := s.d
+	if !d.LineChecks {
+		return st
+	}
+	if !d.lineChecked(side, line) {
+		st.check = 1
+		return st
+	}
+	st.check = 2
+	g := st.gutter
+	if g.A == 0 {
+		g = ed.theme.Background
+	}
+	st.gutter = mixLab(g, ed.theme.Modified, 0.35)
+	return st
 }
 
 // selectedLook returns st tinted as a line selected by its number
@@ -233,6 +257,7 @@ func (s *diffSide) paintDeleted(p *ui.Painter, ed *editor, b *block, r ui.Rect) 
 			look.bg, look.gutter = dc.deletedLine, dc.deletedGutter
 		}
 		look = s.selectedLook(ed, DiffOld, pl.line, look)
+		look = s.checkLook(ed, DiffOld, pl.line, look)
 		if look.bg.A != 0 {
 			p.Fill(ui.Rect{X: text.X, Y: pl.y, W: text.W, H: pl.h}, look.bg, 0)
 		}
@@ -253,6 +278,9 @@ func (s *diffSide) paintDeleted(p *ui.Painter, ed *editor, b *block, r ui.Rect) 
 		}
 		if d.Indicators == DiffBars {
 			ed.paintBar(p, ui.Rect{X: r.X, Y: pl.y, W: 4, H: pl.h}, lineLook{bar: dc.deleted, stripes: true})
+		}
+		if look.check != 0 {
+			ed.paintCheck(p, r.X, pl.y, look.check == 2)
 		}
 	}
 	p.Clip(text, 0, func() {
@@ -310,10 +338,18 @@ func (s *diffSide) blockInput(ed *editor, b *block, ev ui.InputEvent, r ui.Rect)
 	if b != nil {
 		switch b.kind {
 		case blockDeleted:
-			// Lines of the old text: their numbers select them.
-			if ev.X < ed.gutterW && d.LineSelection && ev.Kind == ui.InputPointerDown {
-				s.pressLine(ed, DiffOld, d.deletedLineAt(b, float64(ev.Y-r.Y)), ev.Mods)
+			// Lines of the old text: their gutters check them, or
+			// their numbers select them.
+			if ev.X >= ed.gutterW || ev.Kind != ui.InputPointerDown {
 				return true
+			}
+			line := d.deletedLineAt(b, float64(ev.Y-r.Y))
+			switch {
+			case d.LineChecks:
+				_, cy := ed.toContent(ev.X, ev.Y)
+				d.pressCheck(1, DiffOld, line, cy)
+			case d.LineSelection:
+				s.pressLine(ed, DiffOld, line, ev.Mods)
 			}
 			return true
 		}
@@ -325,6 +361,14 @@ func (s *diffSide) blockInput(ed *editor, b *block, ev ui.InputEvent, r ui.Rect)
 	}
 	_, cy := ed.toContent(ev.X, ev.Y)
 	line := ed.view.heights.lineAt(cy)
+	if d.LineChecks && !s.empty() && s.hunkOf(line) >= 0 {
+		i := 1
+		if s.old {
+			i = 0
+		}
+		d.pressCheck(i, side, line, cy)
+		return true
+	}
 	if d.LineSelection && !s.empty() {
 		s.pressLine(ed, side, line, ev.Mods)
 		return true
