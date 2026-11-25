@@ -142,7 +142,8 @@ keystroke. Cmd+F8 and Shift+Cmd+F8 go to the next and previous changes
   or unchecks it, and a drag from there sets the changed lines it goes
   over alike, reported once it is released. A click on a change's bar, at
   the gutter's left edge, checks all its lines, old and new, or unchecks
-  them when they all are.
+  them when they all are. `NoCheckMarks` leaves the boxes out: the checked
+  lines' tinted numbers show what is checked, and are pressed alike.
 - `OnGutterButton` shows a + on the gutter of the line under the pointer,
   as to comment on it, and is called with the line when it is clicked.
 - `Annotations` leave room under lines for what `RenderAnnotation` builds
