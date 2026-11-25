@@ -2,6 +2,7 @@ package editor
 
 import (
 	"fmt"
+	"image/color"
 	"math"
 	"math/rand/v2"
 	"slices"
@@ -351,6 +352,40 @@ func TestDiffViewerLineSelectionShiftDrag(t *testing.T) {
 	shiftDrag(0, 3)
 	if r, _ := d.SelectedLines(); r != (DiffLineRange{DiffNew, 3, 5}) {
 		t.Fatalf("selected %+v, want new lines 3 to 5", r)
+	}
+}
+
+// A unified view's deleted lines show their selection as the lines of
+// the text do: their background and gutter tinted.
+func TestDiffViewerLineSelectionPaintsDeleted(t *testing.T) {
+	d := &DiffState{Old: NewBuffer("a\nb\nc\nd\ne\n"), New: NewBuffer("a\nX\nY\ne\n"), Layout: DiffUnified, ExpandUnchanged: true, LineSelection: true}
+	tt := ui.NewTester(func(c *ui.Context) { DiffView(c, d).Fill() }, 600, 400)
+	tt.Frame()
+	ed := &d.eds[1]
+	lh := ed.view.lineHeight
+	top := float32(ed.view.heights.geometry(1).top - ed.scrollY)
+	// The colors of old line i's text, past its characters, and gutter.
+	colors := func(i int) (text, gutter color.RGBA) {
+		img := tt.Image()
+		s := float32(img.Bounds().Dx()) / 600
+		y := int((top + lh*(float32(i-1)+0.5)) * s)
+		return img.RGBAAt(int(400*s), y), img.RGBAAt(int(4*s)+int(8*s), y)
+	}
+	t1, g1 := colors(1)
+	t2, g2 := colors(2)
+	if t1 != t2 || g1 != g2 {
+		t.Fatalf("unselected deleted lines differ: %v %v, %v %v", t1, g1, t2, g2)
+	}
+	tt.ClickAt(ed.gutterW-8, top+lh/2) // old line 1, "b"
+	if r, ok := d.SelectedLines(); !ok || r != (DiffLineRange{DiffOld, 1, 1}) {
+		t.Fatalf("selected %+v %v, want old line 1", r, ok)
+	}
+	s1, sg1 := colors(1)
+	if s1 == t1 || sg1 == g1 {
+		t.Fatalf("selected deleted line painted %v %v, as unselected %v %v", s1, sg1, t1, g1)
+	}
+	if c, g := colors(2); c != t2 || g != g2 {
+		t.Fatalf("the line below changed to %v %v", c, g)
 	}
 }
 
