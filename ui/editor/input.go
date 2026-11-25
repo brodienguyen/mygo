@@ -380,12 +380,7 @@ func (ed *editor) pointerMove(ev ui.InputEvent) bool {
 		return true
 	}
 	if ed.gesture.active && ev.Button == 0 {
-		cx, cy := ed.toContent(ev.X, ev.Y)
-		if ed.gesture.mode == 3 {
-			ed.columnSelect(cx, cy)
-			return true
-		}
-		ed.extendGesture(ed.offsetAt(cx, cy))
+		ed.dragTo(ed.toContent(ev.X, ev.Y))
 		return true
 	}
 	// Hovering: the region, which the cursor shows, a line's gutter, and
@@ -456,8 +451,7 @@ func (ed *editor) wheel(ev ui.InputEvent) bool {
 		moved = moved || ed.scrollX != before
 	}
 	if moved && ed.gesture.active {
-		cx, cy := ed.toContent(ed.pointer.X, ed.pointer.Y)
-		ed.extendGesture(ed.offsetAt(cx, cy))
+		ed.dragTo(ed.toContent(ed.pointer.X, ed.pointer.Y))
 	}
 	return moved
 }
@@ -906,13 +900,18 @@ func (ed *editor) autoscroll() bool {
 	if dy != 0 {
 		ed.setScrollShared(ed.scrollY + float64(edgeSpeed(dy)))
 	}
-	cx, cy := ed.toContent(ed.pointer.X, ed.pointer.Y)
+	ed.dragTo(ed.toContent(ed.pointer.X, ed.pointer.Y))
+	return true
+}
+
+// dragTo extends the gesture to the point (cx, cy) of the content: the
+// columns or the text it selects.
+func (ed *editor) dragTo(cx float32, cy float64) {
 	if ed.gesture.mode == 3 {
 		ed.columnSelect(cx, cy)
-	} else {
-		ed.extendGesture(ed.offsetAt(cx, cy))
+		return
 	}
-	return true
+	ed.extendGesture(ed.offsetAt(cx, cy))
 }
 
 // past returns how far v lies outside [lo, hi]: negative below lo,
