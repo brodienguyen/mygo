@@ -113,8 +113,9 @@ type DiffState struct {
 	// pointer, whose menu it fills with the actions on the line, or on
 	// the lines selected when it is among them, as to comment on them or
 	// suggest a change to them. The diff's own items follow: Copy copies
-	// the lines, and Select All selects all the side's text. A change's
-	// actions go left of the button.
+	// the lines, Select All selects all the side's text, and Expand up and
+	// Expand down reveal the unchanged lines hidden nearest above and
+	// below them. A change's actions go left of the button.
 	LineMenu func(m *ui.Menu, lines DiffLineRange)
 	// Annotations show what RenderAnnotation builds under lines, as
 	// comments of a review, as high as each asks; the other side of a

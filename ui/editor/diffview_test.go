@@ -490,7 +490,7 @@ func testDiffViewerLineMenu(t *testing.T, p ui.MenuPresentation) {
 		}
 		tt.Move(r.X+r.W/2, r.Y+r.H/2)
 		tt.ClickAt(r.X+r.W/2, r.Y+r.H/2)
-		if m := tt.Menu(); !slices.Equal(m, []string{"Comment", "Suggest change", "Copy link", "-", "Copy", "Select All"}) {
+		if m := tt.Menu(); !slices.Equal(m, []string{"Comment", "Suggest change", "Copy link", "-", "Copy", "Select All", "-", "Expand up", "Expand down"}) {
 			t.Fatalf("menu %q", m)
 		}
 		// While a menu drawn in the window shows, the pointer going on
@@ -581,7 +581,7 @@ func TestDiffViewerLineMenuItems(t *testing.T) {
 		for _, a := range tt.AccessAll() {
 			if a.Name == "Line actions" {
 				tt.ClickAt(a.Bounds.X+a.Bounds.W/2, a.Bounds.Y+a.Bounds.H/2)
-				if m, want := tt.Menu(), []string{"Comment", "-", "Copy", "Select All"}; !slices.Equal(m, want) {
+				if m, want := tt.Menu(), []string{"Comment", "-", "Copy", "Select All", "-", "Expand up", "Expand down"}; !slices.Equal(m, want) {
 					t.Fatalf("menu %q, want %q", m, want)
 				}
 				return
@@ -621,6 +621,82 @@ func TestDiffViewerLineMenuItems(t *testing.T) {
 
 // TestDiffViewerLineMenuFolded checks that a line folded away while its
 // menu shows, or gone from the text, takes its button, and the menu, with
+// TestDiffViewerLineMenuExpand checks that a line's menu reveals the
+// unchanged lines hidden nearest above and below it, a step at a time
+// from the side nearer the line, and offers neither once none hide there.
+func TestDiffViewerLineMenuExpand(t *testing.T) {
+	// Changes at lines 30 and 52 leave lines 0–26, 34–48 and 56–60
+	// hidden.
+	lines := slices.Repeat([]string{"x"}, 61)
+	old := strings.Join(lines, "\n") + "\n"
+	lines[30], lines[52] = "A", "B"
+	d := &DiffState{Old: NewBuffer(old), New: NewBuffer(strings.Join(lines, "\n") + "\n"), Layout: DiffSplit, ExpansionLines: 5,
+		LineMenu: func(m *ui.Menu, lines DiffLineRange) { m.Item("Comment") }}
+	tt := ui.NewTester(func(c *ui.Context) { DiffView(c, d).Fill() }, 800, 2000)
+	tt.Frame()
+	ed := &d.eds[1]
+	hidden := func(lines ...int) []bool {
+		var out []bool
+		for _, l := range lines {
+			out = append(out, ed.view.heights.geometry(l).hidden)
+		}
+		return out
+	}
+	want := func(what string, lines []int, h ...bool) {
+		t.Helper()
+		if got := hidden(lines...); !slices.Equal(got, h) {
+			t.Fatalf("%s: lines %v hidden %v, want %v", what, lines, got, h)
+		}
+	}
+	// choose opens the menu of line and chooses item in it.
+	choose := func(line int, item string) error {
+		t.Helper()
+		tt.Move(ed.r.X+ed.gutterW+40, float32(ed.view.heights.geometry(line).rows-ed.scrollY)+ed.view.lineHeight/2)
+		tt.Frame()
+		r, ok := tt.Find("Line actions")
+		if !ok {
+			t.Fatalf("no menu button on line %d", line)
+		}
+		tt.ClickAt(r.X+r.W/2, r.Y+r.H/2)
+		if m, want := tt.Menu(), []string{"Comment", "-", "Copy", "Select All", "-", "Expand up", "Expand down"}; !slices.Equal(m, want) {
+			t.Fatalf("menu %q, want %q", m, want)
+		}
+		err := tt.ChooseMenuItem(item)
+		tt.Frame()
+		return err
+	}
+	want("folded", []int{26, 27, 33, 34, 48, 49, 55, 56}, true, false, false, true, true, false, false, true)
+	// Expand up reveals the bottom of the nearest gap above.
+	if err := choose(52, "Expand up"); err != nil {
+		t.Fatal(err)
+	}
+	want("expanded up from line 52", []int{26, 43, 44, 48}, true, true, false, false)
+	// Expand down reveals the top of the nearest gap below.
+	if err := choose(30, "Expand down"); err != nil {
+		t.Fatal(err)
+	}
+	want("expanded down from line 30", []int{34, 38, 39, 56}, false, false, true, true)
+	// Once no line hides above or below, neither is offered.
+	for range 10 {
+		if choose(30, "Expand up") != nil {
+			break
+		}
+	}
+	want("expanded up from line 30", []int{0, 26}, false, false)
+	if err := choose(30, "Expand up"); err == nil {
+		t.Fatal("Expand up is offered with no line hidden above")
+	}
+	for range 10 {
+		if choose(52, "Expand down") != nil {
+			break
+		}
+	}
+	want("expanded down from line 52", []int{56, 60}, false, false)
+	if err := choose(52, "Expand down"); err == nil {
+		t.Fatal("Expand down is offered with no line hidden below")
+	}
+}
+
 // it.
 func TestDiffViewerLineMenuFolded(t *testing.T) {
 	old := strings.Repeat("x\n", 30) + "a\n" + strings.Repeat("y\n", 30)

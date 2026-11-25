@@ -684,7 +684,8 @@ func (s *diffSide) lineMenuButton(c *ui.Context, ed *editor, side DiffSide, line
 }
 
 // lineMenuItems adds the diff's own items to a line's menu, after the
-// app's: copying the lines, and selecting all the side's text.
+// app's: copying the lines, selecting all the side's text, and revealing
+// the unchanged lines hidden above and below them.
 func (s *diffSide) lineMenuItems(m *ui.Menu, ed *editor, lines DiffLineRange) {
 	tx := ed.texts
 	m.Separator()
@@ -695,6 +696,36 @@ func (s *diffSide) lineMenuItems(m *ui.Menu, ed *editor, lines DiffLineRange) {
 	if m.Item(tx.SelectAll()).Chosen() {
 		ed.run(SelectAll)
 	}
+	m.Separator()
+	above, below := s.gapsAround(lines)
+	if m.Item(tx.ExpandUp()).Disabled(above == nil).Chosen() {
+		s.d.expand(above.a, -1, false)
+	}
+	if m.Item(tx.ExpandDown()).Disabled(below == nil).Chosen() {
+		s.d.expand(below.a, 1, false)
+	}
+}
+
+// gapsAround returns the nearest gaps hiding lines of the side above and
+// below the lines, or nil.
+func (s *diffSide) gapsAround(lines DiffLineRange) (above, below *diffGap) {
+	for i := range s.d.gapList {
+		g := &s.d.gapList[i]
+		if g.hidden == 0 {
+			continue
+		}
+		start := g.hideB
+		if s.old {
+			start = g.hideA
+		}
+		switch {
+		case start+g.hidden-1 < lines.Start:
+			above = g
+		case start > lines.End && below == nil:
+			below = g
+		}
+	}
+	return above, below
 }
 
 // hunkSpan returns the heights of the content a change's lines show
