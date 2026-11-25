@@ -297,8 +297,9 @@ type gesture struct {
 	others   []sel
 	colStart ui.Point
 	// drag, set by startDrag, takes the drag's points in place of the
-	// text's selection.
+	// text's selection, and end its release.
 	drag func(cx float32, cy float64)
+	end  func()
 }
 
 // init sets up the editor for a frame.

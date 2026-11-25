@@ -339,7 +339,7 @@ func (s *diffSide) pressLine(ed *editor, side DiffSide, line int, mods ui.Modifi
 	d := s.d
 	d.selectLine(side, line, mods&ui.Shift != 0)
 	if d.hasSel {
-		ed.startDrag(func(_ float32, cy float64) { s.dragLine(ed, cy) })
+		ed.startDrag(func(_ float32, cy float64) { s.dragLine(ed, cy) }, nil)
 	}
 }
 

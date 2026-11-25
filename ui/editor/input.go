@@ -77,6 +77,9 @@ func (ed *editor) dispatch(ev ui.InputEvent) bool {
 		return ed.pointerMove(ev)
 	case ui.InputPointerUp:
 		if ed.gesture.active || ed.scrollbar.active {
+			if end := ed.gesture.end; ed.gesture.active && end != nil {
+				defer end()
+			}
 			ed.gesture.active = false
 			ed.scrollbar.active = false
 			ed.endGroup()
@@ -909,9 +912,11 @@ func (ed *editor) autoscroll() bool {
 // points of the content it goes over to drag, in place of selecting
 // text: as the pointer moves, as the view scrolls under it with the wheel,
 // and as it scrolls the view, only up and down, held past its top or
-// bottom. A decor's blockInput calls it for a drag of its own.
-func (ed *editor) startDrag(drag func(cx float32, cy float64)) {
-	ed.gesture = gesture{active: true, drag: drag}
+// bottom. end, when not nil, is called on the release; a drag the editor
+// drops without one, as it loses the keyboard, does not call it. A
+// decor's blockInput calls it for a drag of its own.
+func (ed *editor) startDrag(drag func(cx float32, cy float64), end func()) {
+	ed.gesture = gesture{active: true, drag: drag, end: end}
 }
 
 // dragTo extends the gesture to the point (cx, cy) of the content: the
