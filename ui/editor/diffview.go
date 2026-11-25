@@ -103,9 +103,9 @@ type DiffState struct {
 	LineChecked  func(side DiffSide, line int) bool
 	OnCheckLines func(lines []DiffLineRange, checked bool)
 	NoCheckMarks bool
-	// OnGutterButton shows a + on the gutter of the line under the
-	// pointer, as to comment on it, and is called with the line when it
-	// is clicked.
+	// OnGutterButton shows a + at the right of the number of the line
+	// under the pointer, as to comment on it, and is called with the line
+	// when it is clicked.
 	OnGutterButton func(DiffLineRange)
 	// Annotations show what RenderAnnotation builds under lines, as
 	// comments of a review, as high as each asks; the other side of a
@@ -628,6 +628,7 @@ func (d *DiffState) sideOptions(old bool) options {
 		o.lineNumbers = LineNumbersOff
 	}
 	o.checks = d.LineChecks && !d.NoCheckMarks
+	o.button = d.OnGutterButton != nil
 	o.diffSide = diffNewSide
 	if old {
 		o.diffSide = diffOldSide

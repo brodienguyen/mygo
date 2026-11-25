@@ -81,6 +81,9 @@ type options struct {
 	// checks leaves room in the gutter for a diff's check boxes of lines
 	// (DiffState.LineChecks).
 	checks bool
+	// button leaves room at the gutter's right for a diff's button on the
+	// line under the pointer (DiffState.OnGutterButton).
+	button bool
 	// hoverDelay and noPointerHover are State's HoverDelay and
 	// NoPointerHover.
 	hoverDelay     time.Duration
@@ -893,6 +896,7 @@ func (ed *editor) gutterWidth() float32 {
 	if ed.o.checks {
 		w += ed.checkRoom()
 	}
+	w += ed.buttonRoom()
 	if w > 0 {
 		w += 4
 	}

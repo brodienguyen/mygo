@@ -790,6 +790,7 @@ func (ed *editor) paintGutter(p *ui.Painter, r ui.Rect, f *frame) {
 		if ed.gitDiff != nil {
 			numRight -= 6
 		}
+		numRight -= ed.buttonRoom()
 		var cc runColors
 		for line := f.first; line <= f.last; line++ {
 			g := h.geometry(line)
@@ -888,6 +889,15 @@ func (ed *editor) paintGutter(p *ui.Painter, r ui.Rect, f *frame) {
 			}
 		}
 	})
+}
+
+// buttonRoom is the room a diff's gutter button takes at the right of the
+// gutter, after the numbers (DiffState.OnGutterButton), or 0 without it.
+func (ed *editor) buttonRoom() float32 {
+	if !ed.o.button {
+		return 0
+	}
+	return float32(math.Round(float64(ed.view.lineHeight)))
 }
 
 // checkRoom is the room a diff's check boxes of lines take at the left of

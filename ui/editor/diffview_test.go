@@ -328,6 +328,65 @@ func TestDiffViewerLineSelectionDrag(t *testing.T) {
 	}
 }
 
+// TestDiffViewerGutterButton checks the gutter button at the right of the
+// numbers, in room of its own: a click reports its line.
+func TestDiffViewerGutterButton(t *testing.T) {
+	var got []DiffLineRange
+	d := &DiffState{Old: NewBuffer("a\nb\nc\nd\ne\n"), New: NewBuffer("a\nB\nC\nD\ne\n"), Layout: DiffSplit, ExpandUnchanged: true,
+		LineSelection: true, OnGutterButton: func(r DiffLineRange) { got = append(got, r) }}
+	plain := &DiffState{Old: NewBuffer("a\nb\nc\nd\ne\n"), New: NewBuffer("a\nB\nC\nD\ne\n"), Layout: DiffSplit, ExpandUnchanged: true}
+	tt := ui.NewTester(func(c *ui.Context) {
+		ui.Column(c).Fill().Children(func() {
+			DiffView(c, d).Grow(1)
+			DiffView(c, plain).Grow(1)
+		})
+	}, 800, 400)
+	tt.Frame()
+	ed := &d.eds[1]
+	room := ed.buttonRoom()
+	if room <= 0 || ed.gutterW != plain.eds[1].gutterW+room {
+		t.Fatalf("gutter %v with the button, %v without, room %v", ed.gutterW, plain.eds[1].gutterW, room)
+	}
+	mid := func(line int) float32 {
+		return float32(ed.view.heights.geometry(line).rows-ed.scrollY) + ed.view.lineHeight/2
+	}
+	x := ed.r.X + ed.gutterW - room/2
+	report := func(want ...DiffLineRange) {
+		t.Helper()
+		if !slices.Equal(got, want) {
+			t.Fatalf("reported %+v, want %+v", got, want)
+		}
+		got = nil
+	}
+	// A click, on an unchanged line too.
+	tt.Move(x, mid(0))
+	tt.Frame()
+	tt.ClickAt(x, mid(0))
+	report(DiffLineRange{DiffNew, 0, 0})
+	// At rest, the numbers end left of the button's room.
+	tt.Move(ed.r.X+400, mid(0))
+	tt.Frame()
+	img := tt.Image()
+	sc := float32(img.Bounds().Dx()) / 800
+	at := func(x, y float32) color.RGBA { return img.RGBAAt(int(x*sc), int(y*sc)) }
+	top := float32(ed.view.heights.geometry(0).rows - ed.scrollY)
+	bg := at(ed.r.X+ed.gutterW-1, mid(0))
+	inked := func(x0, x1 float32) bool {
+		for x := x0; x < x1; x += 1 / sc {
+			for y := top + 1; y < top+ed.view.lineHeight-1; y += 1 / sc {
+				if at(x, y) != bg {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	numRight := ed.r.X + ed.gutterW - room
+	if inked(numRight, ed.r.X+ed.gutterW-1) || !inked(numRight-3*ed.view.charWidth, numRight) {
+		t.Fatal("the number of line 1 is not left of the button's room")
+	}
+}
+
 // Shift-click moves an end, and a drag from there keeps the other end.
 func TestDiffViewerLineSelectionShiftDrag(t *testing.T) {
 	d := &DiffState{Old: NewBuffer("a\nb\nc\nd\ne\nf\n"), New: NewBuffer("A\nB\nC\nD\nE\nF\n"), Layout: DiffSplit, ExpandUnchanged: true, LineSelection: true}

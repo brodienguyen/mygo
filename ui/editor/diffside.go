@@ -282,7 +282,7 @@ func (s *diffSide) paintDeleted(p *ui.Painter, ed *editor, b *block, r ui.Rect) 
 			nr := rowLayout{pieces: []rowPiece{{to: len(num), l: lay, ascii: true, width: lay.Width}}, to: len(num)}
 			var nc runColors
 			col := look.number
-			ed.view.paintRow(p, &lineLayout{disp: num}, &nr, r.X+ed.gutterW-4-ed.view.charWidth*0.5-lay.Width, pl.y, &nc, func(int, ui.Color) ui.Color { return col })
+			ed.view.paintRow(p, &lineLayout{disp: num}, &nr, r.X+ed.gutterW-4-ed.view.charWidth*0.5-ed.buttonRoom()-lay.Width, pl.y, &nc, func(int, ui.Color) ui.Color { return col })
 		}
 		if d.Indicators == DiffBars {
 			ed.paintBar(p, ui.Rect{X: r.X, Y: pl.y, W: 4, H: pl.h}, lineLook{bar: dc.deleted, stripes: true})
@@ -568,8 +568,9 @@ func (s *diffSide) buildBlocks(c *ui.Context, ed *editor) {
 		g := h.geometry(ed.hoverLine)
 		if !g.hidden {
 			line := DiffLineRange{Side: side, Start: ed.hoverLine, End: ed.hoverLine}
-			ui.Box(c).Key("gutter button").Absolute().Left(2).Top(float32(g.rows-ed.scrollY) + 2).HandleInput(shield).Children(func() {
-				btn := ui.ButtonBase(c).Size(16, v.lineHeight-4).Cursor(ui.CursorPointer).KeepFocus()
+			room := ed.buttonRoom()
+			ui.Box(c).Key("gutter button").Absolute().Left(ed.gutterW - room).Top(float32(g.rows-ed.scrollY) + 2).HandleInput(shield).Children(func() {
+				btn := ui.ButtonBase(c).Size(room-4, v.lineHeight-4).Cursor(ui.CursorPointer).KeepFocus()
 				render := d.RenderGutterButton
 				if render == nil {
 					render = DefaultGutterButton
