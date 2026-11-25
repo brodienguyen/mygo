@@ -296,11 +296,7 @@ func (s *diffSide) blockInput(ed *editor, b *block, ev ui.InputEvent, r ui.Rect)
 		case blockDeleted:
 			// Lines of the old text: their numbers select them.
 			if ev.X < ed.gutterW && d.LineSelection && ev.Kind == ui.InputPointerDown {
-				// The line by the tops of the lines, its annotations its own.
-				tops := d.deletedTops[b.hunk]
-				i := sort.Search(len(tops), func(i int) bool { return tops[i] > float64(ev.Y-r.Y) })
-				line := b.from + min(max(i-1, 0), b.to-b.from-1)
-				d.selectLine(DiffOld, line, ev.Mods&ui.Shift != 0)
+				s.pressLine(ed, DiffOld, d.deletedLineAt(b, float64(ev.Y-r.Y)), ev.Mods)
 				return true
 			}
 			return true
@@ -314,10 +310,42 @@ func (s *diffSide) blockInput(ed *editor, b *block, ev ui.InputEvent, r ui.Rect)
 	_, cy := ed.toContent(ev.X, ev.Y)
 	line := ed.view.heights.lineAt(cy)
 	if d.LineSelection && !s.empty() {
-		d.selectLine(side, line, ev.Mods&ui.Shift != 0)
+		s.pressLine(ed, side, line, ev.Mods)
 		return true
 	}
 	return false
+}
+
+// pressLine selects the line whose number is pressed, or extends the
+// selection to it with Shift, and has the drag that follows select the
+// lines it goes over (dragLine).
+func (s *diffSide) pressLine(ed *editor, side DiffSide, line int, mods ui.Modifiers) {
+	d := s.d
+	d.selectLine(side, line, mods&ui.Shift != 0)
+	if d.hasSel {
+		ed.startDrag(func(_ float32, cy float64) { s.dragLine(ed, cy) })
+	}
+}
+
+// dragLine extends the lines selected to the line at height y of the
+// content: a deleted line of a unified view, or a line of the side's
+// text. Blocks that hold no line, as annotations, leave them be.
+func (s *diffSide) dragLine(ed *editor, y float64) {
+	d := s.d
+	if b, r, ok := ed.blockAt(y); ok {
+		if b.kind == blockDeleted {
+			d.dragLine(DiffOld, d.deletedLineAt(b, y-ed.scrollY-float64(r.Y)))
+		}
+		return
+	}
+	if s.empty() {
+		return
+	}
+	side := DiffNew
+	if s.old {
+		side = DiffOld
+	}
+	d.dragLine(side, ed.view.heights.lineAt(y))
 }
 
 // buildBlocks builds what blocks hold of elements in view: annotations,
