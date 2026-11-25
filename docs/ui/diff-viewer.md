@@ -149,6 +149,11 @@ keystroke. Cmd+F8 and Shift+Cmd+F8 go to the next and previous changes
   when it is clicked. A drag from it selects the lines it goes over, on
   the side it started on, and calls it with them once it is released; a
   click among the lines selected calls it with them all.
+- `LineMenu` shows a button at the right end of the line under the
+  pointer, as github.com does, whose menu it fills with the actions on the
+  line, or on the lines selected when it is among them. While its menu
+  shows in the window, the button stays on its line as the pointer goes
+  on to others; a change's actions go left of it.
 - `Annotations` leave room under lines for what `RenderAnnotation` builds
   there, as the comments of a review, each as high as it asks; the other
   side of a split view leaves the room empty, so that the lines stay
@@ -361,7 +366,8 @@ described by which ("Lines 30 to 41", or the old and the new numbers
 where they differ), with buttons expanding them up, down or all; Revert
 and Keep are buttons, "Revert change" and "Keep change". With
 `LineChecks`, a change's bar is a check box named "Change", checked when
-all its lines are and mixed when some are. These names, and
+all its lines are and mixed when some are. With `LineMenu`, a line's
+button is a menu button named "Line actions". These names, and
 what the viewer writes ("4 unmodified lines"), are in the window's
 language ([MyGo's own strings](../i18n.md#mygos-own-strings)).
 
