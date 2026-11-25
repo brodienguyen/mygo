@@ -490,7 +490,7 @@ func testDiffViewerLineMenu(t *testing.T, p ui.MenuPresentation) {
 		}
 		tt.Move(r.X+r.W/2, r.Y+r.H/2)
 		tt.ClickAt(r.X+r.W/2, r.Y+r.H/2)
-		if m := tt.Menu(); !slices.Equal(m, []string{"Comment", "Suggest change", "Copy link", "-", "Copy"}) {
+		if m := tt.Menu(); !slices.Equal(m, []string{"Comment", "Suggest change", "Copy link", "-", "Copy", "Select All"}) {
 			t.Fatalf("menu %q", m)
 		}
 		// While a menu drawn in the window shows, the pointer going on
@@ -581,7 +581,7 @@ func TestDiffViewerLineMenuItems(t *testing.T) {
 		for _, a := range tt.AccessAll() {
 			if a.Name == "Line actions" {
 				tt.ClickAt(a.Bounds.X+a.Bounds.W/2, a.Bounds.Y+a.Bounds.H/2)
-				if m, want := tt.Menu(), []string{"Comment", "-", "Copy"}; !slices.Equal(m, want) {
+				if m, want := tt.Menu(), []string{"Comment", "-", "Copy", "Select All"}; !slices.Equal(m, want) {
 					t.Fatalf("menu %q, want %q", m, want)
 				}
 				return
@@ -610,6 +610,12 @@ func TestDiffViewerLineMenuItems(t *testing.T) {
 	choose("Copy")
 	if got := tt.Clipboard(); got != "B\nC\nD" {
 		t.Fatalf("copied %q from the lines selected", got)
+	}
+	// Select All selects all the side's text.
+	open(2)
+	choose("Select All")
+	if s := ed.sels; len(s) != 1 || min(s[0].anchor, s[0].head) != 0 || max(s[0].anchor, s[0].head) != ed.view.text.Len() {
+		t.Fatalf("selection %+v of %d", s, ed.view.text.Len())
 	}
 }
 

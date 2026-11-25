@@ -684,13 +684,16 @@ func (s *diffSide) lineMenuButton(c *ui.Context, ed *editor, side DiffSide, line
 }
 
 // lineMenuItems adds the diff's own items to a line's menu, after the
-// app's: copying the lines.
+// app's: copying the lines, and selecting all the side's text.
 func (s *diffSide) lineMenuItems(m *ui.Menu, ed *editor, lines DiffLineRange) {
 	tx := ed.texts
 	m.Separator()
 	if m.Item(tx.Copy()).Chosen() {
 		r := &ed.view.text
 		ed.services.WriteClipboard(r.Slice(r.LineStart(lines.Start), r.LineEnd(lines.End)))
+	}
+	if m.Item(tx.SelectAll()).Chosen() {
+		ed.run(SelectAll)
 	}
 }
 
