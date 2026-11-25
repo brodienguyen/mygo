@@ -396,24 +396,32 @@ func (s *diffSide) pressLine(ed *editor, side DiffSide, line int, mods ui.Modifi
 }
 
 // dragLine extends the lines selected to the line at height y of the
-// content: a deleted line of a unified view, or a line of the side's
-// text. Blocks that hold no line, as annotations, leave them be.
+// content (lineAt).
 func (s *diffSide) dragLine(ed *editor, y float64) {
+	if side, line, ok := s.lineAt(ed, y); ok {
+		s.d.dragLine(side, line)
+	}
+}
+
+// lineAt returns the line at height y of the content: a deleted line of
+// a unified view, or a line of the side's text. Blocks that hold no line,
+// as annotations, hold none.
+func (s *diffSide) lineAt(ed *editor, y float64) (DiffSide, int, bool) {
 	d := s.d
 	if b, r, ok := ed.blockAt(y); ok {
 		if b.kind == blockDeleted {
-			d.dragLine(DiffOld, d.deletedLineAt(b, y-ed.scrollY-float64(r.Y)))
+			return DiffOld, d.deletedLineAt(b, y-ed.scrollY-float64(r.Y)), true
 		}
-		return
+		return 0, 0, false
 	}
 	if s.empty() {
-		return
+		return 0, 0, false
 	}
 	side := DiffNew
 	if s.old {
 		side = DiffOld
 	}
-	d.dragLine(side, ed.view.heights.lineAt(y))
+	return side, ed.view.heights.lineAt(y), true
 }
 
 // buildBlocks builds what blocks hold of elements in view: annotations,
