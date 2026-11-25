@@ -900,6 +900,17 @@ func (ed *editor) buttonRoom() float32 {
 	return float32(math.Round(float64(ed.view.lineHeight)))
 }
 
+// onButton reports whether the point (x, y) of the editor is on the room
+// of the gutter button of a line, not on a block under or above it.
+func (ed *editor) onButton(x, y float32) bool {
+	if !ed.o.button || x < ed.gutterW-ed.buttonRoom() || x >= ed.gutterW {
+		return false
+	}
+	_, cy := ed.toContent(x, y)
+	g := ed.view.heights.geometry(ed.view.heights.lineAt(cy))
+	return cy >= g.rows && cy < g.below
+}
+
 // checkRoom is the room a diff's check boxes of lines take at the left of
 // the gutter, after the change bar (DiffState.LineChecks).
 func (ed *editor) checkRoom() float32 {

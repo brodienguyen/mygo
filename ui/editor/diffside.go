@@ -369,6 +369,10 @@ func (s *diffSide) blockInput(ed *editor, b *block, ev ui.InputEvent, r ui.Rect)
 	}
 	_, cy := ed.toContent(ev.X, ev.Y)
 	line := ed.view.heights.lineAt(cy)
+	if d.OnGutterButton != nil && !s.empty() && ed.onButton(ev.X, ev.Y) {
+		s.pressButton(ed, side, line)
+		return true
+	}
 	if d.LineChecks && !s.empty() && s.hunkOf(line) >= 0 {
 		i := 1
 		if s.old {
@@ -393,6 +397,19 @@ func (s *diffSide) pressLine(ed *editor, side DiffSide, line int, mods ui.Modifi
 	if d.hasSel {
 		ed.startDrag(func(_ float32, cy float64) { s.dragLine(ed, cy) }, nil)
 	}
+}
+
+// pressButton selects the line whose gutter button is pressed, and the
+// release calls OnGutterButton with it, as a review comments on it.
+func (s *diffSide) pressButton(ed *editor, side DiffSide, line int) {
+	d := s.d
+	d.selected, d.hasSel = DiffLineRange{Side: side, Start: line, End: line}, true
+	if d.OnLineSelection != nil {
+		d.OnLineSelection(d.selected)
+	}
+	ed.startDrag(func(float32, float64) {}, func() {
+		d.OnGutterButton(d.selected)
+	})
 }
 
 // dragLine extends the lines selected to the line at height y of the
@@ -568,9 +585,11 @@ func (s *diffSide) buildBlocks(c *ui.Context, ed *editor) {
 		g := h.geometry(ed.hoverLine)
 		if !g.hidden {
 			line := DiffLineRange{Side: side, Start: ed.hoverLine, End: ed.hoverLine}
+			// The editor takes its press (pressButton); assistive
+			// technology presses it alone.
 			room := ed.buttonRoom()
-			ui.Box(c).Key("gutter button").Absolute().Left(ed.gutterW - room).Top(float32(g.rows-ed.scrollY) + 2).HandleInput(shield).Children(func() {
-				btn := ui.ButtonBase(c).Size(room-4, v.lineHeight-4).Cursor(ui.CursorPointer).KeepFocus()
+			ui.Box(c).Key("gutter button").Absolute().Left(ed.gutterW - room).Top(float32(g.rows-ed.scrollY) + 2).IgnoreInput(true).Children(func() {
+				btn := ui.ButtonBase(c).Size(room-4, v.lineHeight-4).KeepFocus()
 				render := d.RenderGutterButton
 				if render == nil {
 					render = DefaultGutterButton
