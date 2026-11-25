@@ -399,15 +399,19 @@ func (s *diffSide) pressLine(ed *editor, side DiffSide, line int, mods ui.Modifi
 	}
 }
 
-// pressButton selects the line whose gutter button is pressed, and the
-// release calls OnGutterButton with it, as a review comments on it.
+// pressButton selects the line whose gutter button is pressed, and has
+// the drag that follows select from it to the line under the pointer
+// (dragLine). The release calls OnGutterButton with the lines selected,
+// as a review comments on them.
 func (s *diffSide) pressButton(ed *editor, side DiffSide, line int) {
 	d := s.d
-	d.selected, d.hasSel = DiffLineRange{Side: side, Start: line, End: line}, true
+	d.selected, d.hasSel, d.selAnchor = DiffLineRange{Side: side, Start: line, End: line}, true, line
 	if d.OnLineSelection != nil {
 		d.OnLineSelection(d.selected)
 	}
-	ed.startDrag(func(float32, float64) {}, func() {
+	ed.startDrag(func(_ float32, cy float64) {
+		s.dragLine(ed, cy)
+	}, func() {
 		d.OnGutterButton(d.selected)
 	})
 }

@@ -330,7 +330,8 @@ func TestDiffViewerLineSelectionDrag(t *testing.T) {
 
 // TestDiffViewerGutterButton checks the gutter button at the right of the
 // numbers, in room of its own, whose press the editor takes: a click
-// reports its line, and the numbers left of it still select.
+// reports its line, a drag from it selects the lines it goes over and
+// reports them on release, and the numbers left of it still select.
 func TestDiffViewerGutterButton(t *testing.T) {
 	var got []DiffLineRange
 	d := &DiffState{Old: NewBuffer("a\nb\nc\nd\ne\n"), New: NewBuffer("a\nB\nC\nD\ne\n"), Layout: DiffSplit, ExpandUnchanged: true,
@@ -367,12 +368,28 @@ func TestDiffViewerGutterButton(t *testing.T) {
 	// A click, on an unchanged line too.
 	tt.ClickAt(x, mid(0))
 	report(DiffLineRange{DiffNew, 0, 0})
+	// A drag selects as it goes and reports once, on release.
+	tt.Press(x, mid(2))
+	tt.Move(x, mid(4))
+	if r, ok := d.SelectedLines(); !ok || r != (DiffLineRange{DiffNew, 2, 4}) {
+		t.Fatalf("dragged to %+v %v, want new lines 2 to 4", r, ok)
+	}
+	report()
+	tt.Release(x, mid(4))
+	report(DiffLineRange{DiffNew, 2, 4})
 	// The numbers left of it still select, and report no button.
 	tt.ClickAt(x-room-8, mid(4))
 	if r, _ := d.SelectedLines(); r != (DiffLineRange{DiffNew, 4, 4}) {
 		t.Fatalf("a click on the number selected %+v", r)
 	}
 	report()
+	// The old side's button reports old lines.
+	old := &d.eds[0]
+	ox := old.r.X + old.gutterW - room/2
+	tt.Press(ox, mid(1))
+	tt.Move(ox, mid(2))
+	tt.Release(ox, mid(2))
+	report(DiffLineRange{DiffOld, 1, 2})
 	// At rest, the numbers end left of the button's room.
 	tt.Move(ed.r.X+400, mid(0))
 	tt.Frame()
