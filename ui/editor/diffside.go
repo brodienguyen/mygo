@@ -399,17 +399,28 @@ func (s *diffSide) pressLine(ed *editor, side DiffSide, line int, mods ui.Modifi
 	}
 }
 
-// pressButton selects the line whose gutter button is pressed, and has
-// the drag that follows select from it to the line under the pointer
-// (dragLine). The release calls OnGutterButton with the lines selected,
-// as a review comments on them.
+// pressButton selects the line whose gutter button is pressed, or keeps
+// the lines selected when it is among them, and has the drag that
+// follows select from it to the line under the pointer (dragLine). The
+// release calls OnGutterButton with the lines selected, as a review
+// comments on them.
 func (s *diffSide) pressButton(ed *editor, side DiffSide, line int) {
 	d := s.d
-	d.selected, d.hasSel, d.selAnchor = DiffLineRange{Side: side, Start: line, End: line}, true, line
-	if d.OnLineSelection != nil {
-		d.OnLineSelection(d.selected)
+	if !d.hasSel || d.selected.Side != side || line < d.selected.Start || line > d.selected.End {
+		d.selected, d.hasSel = DiffLineRange{Side: side, Start: line, End: line}, true
+		if d.OnLineSelection != nil {
+			d.OnLineSelection(d.selected)
+		}
 	}
+	// The lines selected stay until the pointer leaves the line pressed.
+	moved := false
 	ed.startDrag(func(_ float32, cy float64) {
+		if !moved {
+			if sd, l, ok := s.lineAt(ed, cy); !ok || (sd == side && l == line) {
+				return
+			}
+			moved, d.selAnchor = true, line
+		}
 		s.dragLine(ed, cy)
 	}, func() {
 		d.OnGutterButton(d.selected)
@@ -589,8 +600,8 @@ func (s *diffSide) buildBlocks(c *ui.Context, ed *editor) {
 		g := h.geometry(ed.hoverLine)
 		if !g.hidden {
 			line := DiffLineRange{Side: side, Start: ed.hoverLine, End: ed.hoverLine}
-			// The editor takes its press (pressButton); assistive
-			// technology presses it alone.
+			// The editor takes its press, which a drag follows
+			// (pressButton); assistive technology presses it alone.
 			room := ed.buttonRoom()
 			ui.Box(c).Key("gutter button").Absolute().Left(ed.gutterW - room).Top(float32(g.rows-ed.scrollY) + 2).IgnoreInput(true).Children(func() {
 				btn := ui.ButtonBase(c).Size(room-4, v.lineHeight-4).KeepFocus()

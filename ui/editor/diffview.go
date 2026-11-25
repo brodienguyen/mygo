@@ -106,7 +106,8 @@ type DiffState struct {
 	// OnGutterButton shows a + at the right of the number of the line
 	// under the pointer, as to comment on it, and is called with the line
 	// when it is clicked. A drag from it selects the lines it goes over,
-	// on the side it started on, and calls it with them on release.
+	// on the side it started on, and calls it with them on release; a
+	// click among the lines selected calls it with them all.
 	OnGutterButton func(DiffLineRange)
 	// Annotations show what RenderAnnotation builds under lines, as
 	// comments of a review, as high as each asks; the other side of a
