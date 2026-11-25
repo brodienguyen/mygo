@@ -187,6 +187,25 @@ app.diff.RenderAnnotation = func(c *ui.Context, a editor.DiffAnnotation) {
 }
 ```
 
+A review's Suggest change starts a comment on the lines with their text,
+which the reviewer edits into what they should say, as GitHub's
+` ```suggestion ` block does:
+
+```go
+app.diff.LineMenu = func(m *ui.Menu, r editor.DiffLineRange) {
+	if m.Item("Comment").Chosen() {
+		app.startComment(r, "")
+	}
+	if r.Side == editor.DiffNew && m.Item("Suggest change").Chosen() {
+		lines := make([]string, 0, r.End-r.Start+1)
+		for l := r.Start; l <= r.End; l++ {
+			lines = append(lines, app.diff.New.Line(l))
+		}
+		app.startComment(r, "```suggestion\n"+strings.Join(lines, "\n")+"\n```\n")
+	}
+}
+```
+
 `ActiveSide` is the side that has the keyboard, or had it last: the new
 side until the old one of a split view has it. `Cursor` and `CursorPos`
 return the offset and the position of its newest caret, as the code
