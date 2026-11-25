@@ -2280,3 +2280,51 @@ func TestDiffViewerLineChecksHunkUnified(t *testing.T) {
 		t.Fatalf("reported %+v, want %+v", lc.reports, want)
 	}
 }
+
+// TestDiffViewerLineChecksNoMarks checks that NoCheckMarks leaves the
+// boxes and their room out, and that the numbers still check the lines
+// and show it by their tint.
+func TestDiffViewerLineChecksNoMarks(t *testing.T) {
+	for _, layout := range []DiffLayout{DiffSplit, DiffUnified} {
+		d := &DiffState{Old: NewBuffer("a\nb\nc\nd\n"), New: NewBuffer("a\nB\nC\nd\n"), Layout: layout, ExpandUnchanged: true}
+		tt := ui.NewTester(func(c *ui.Context) { DiffView(c, d).Fill() }, 800, 400)
+		tt.Frame()
+		ed := &d.eds[1]
+		plain := ed.gutterW
+		var lc lineChecks
+		lc.attach(d)
+		d.NoCheckMarks = true
+		tt.Frame()
+		if ed.gutterW != plain {
+			t.Fatalf("layout %d: gutter %v without marks, want %v", layout, ed.gutterW, plain)
+		}
+		lh := ed.view.lineHeight
+		y := func(line int) float32 { return float32(ed.view.heights.geometry(line).rows-ed.scrollY) + lh/2 }
+		// A point of the gutter left of the numbers, where a box would be.
+		at := func(y float32) color.RGBA {
+			img := tt.Image()
+			s := float32(img.Bounds().Dx()) / 800
+			return img.RGBAAt(int((ed.r.X+8)*s), int(y*s))
+		}
+		before := at(y(2))
+		tt.ClickAt(ed.r.X+ed.gutterW-8, y(2))
+		tt.Frame()
+		if want := []DiffLineRange{{DiffNew, 2, 2}}; len(lc.reports) != 1 || !slices.Equal(lc.reports[0], want) || !lc.sets[0] {
+			t.Fatalf("layout %d: reported %+v %v, want %+v checked", layout, lc.reports, lc.sets, want)
+		}
+		if c := at(y(2)); c == before {
+			t.Fatalf("layout %d: the checked line's gutter stayed %v", layout, c)
+		}
+		if c := at(y(1)); c != before {
+			t.Fatalf("layout %d: the unchecked line's gutter is %v, want %v", layout, c, before)
+		}
+		// No box's outline: the gutter is alike at a box's top edge and in
+		// its middle.
+		img := tt.Image()
+		s := float32(img.Bounds().Dx()) / 800
+		bx, half := ed.r.X+6+ed.checkSize()/2, ed.checkSize()/2
+		if e, m := img.RGBAAt(int(bx*s), int((y(1)-half+0.5)*s)), img.RGBAAt(int(bx*s), int(y(1)*s)); e != m {
+			t.Fatalf("layout %d: a box's outline %v over the gutter %v", layout, e, m)
+		}
+	}
+}

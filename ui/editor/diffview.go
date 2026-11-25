@@ -97,9 +97,12 @@ type DiffState struct {
 	// on unchanged lines are LineSelection's. A click on a change's bar
 	// checks all its lines, old and new, or unchecks them when they all
 	// are; the bar is a check box, mixed while some are checked.
+	// NoCheckMarks leaves the lines' boxes out, and their room: the checked
+	// lines' tinted numbers show what is checked, and are pressed alike.
 	LineChecks   bool
 	LineChecked  func(side DiffSide, line int) bool
 	OnCheckLines func(lines []DiffLineRange, checked bool)
+	NoCheckMarks bool
 	// OnGutterButton shows a + on the gutter of the line under the
 	// pointer, as to comment on it, and is called with the line when it
 	// is clicked.
@@ -624,7 +627,7 @@ func (d *DiffState) sideOptions(old bool) options {
 	if d.NoLineNumbers {
 		o.lineNumbers = LineNumbersOff
 	}
-	o.checks = d.LineChecks
+	o.checks = d.LineChecks && !d.NoCheckMarks
 	o.diffSide = diffNewSide
 	if old {
 		o.diffSide = diffOldSide

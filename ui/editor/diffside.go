@@ -92,17 +92,23 @@ func (s *diffSide) lineStyle(line int) lineLook {
 }
 
 // checkLook returns st with the check box of a changed line of side
-// (LineChecks), its gutter tinted when checked, as GitHub Desktop's.
+// (LineChecks), its gutter tinted when checked, as GitHub Desktop's;
+// with NoCheckMarks, the tint alone.
 func (s *diffSide) checkLook(ed *editor, side DiffSide, line int, st lineLook) lineLook {
 	d := s.d
 	if !d.LineChecks {
 		return st
 	}
-	if !d.lineChecked(side, line) {
+	checked := d.lineChecked(side, line)
+	if !d.NoCheckMarks {
 		st.check = 1
+		if checked {
+			st.check = 2
+		}
+	}
+	if !checked {
 		return st
 	}
-	st.check = 2
 	g := st.gutter
 	if g.A == 0 {
 		g = ed.theme.Background
