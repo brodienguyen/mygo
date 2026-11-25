@@ -429,6 +429,113 @@ func TestDiffViewerGutterButton(t *testing.T) {
 	}
 }
 
+func TestDiffViewerLineMenu(t *testing.T) {
+	for _, p := range []ui.MenuPresentation{ui.SystemMenus} {
+		testDiffViewerLineMenu(t, p)
+	}
+}
+
+func testDiffViewerLineMenu(t *testing.T, p ui.MenuPresentation) {
+	type choice struct {
+		item  string
+		lines DiffLineRange
+	}
+	var got []choice
+	d := &DiffState{Old: NewBuffer("a\nb\nc\nd\ne\n"), New: NewBuffer("a\nB\nC\nD\ne\n"), Layout: DiffSplit, ExpandUnchanged: true,
+		LineSelection: true}
+	d.LineMenu = func(m *ui.Menu, lines DiffLineRange) {
+		for _, item := range []string{"Comment", "Suggest change", "Copy"} {
+			if m.Item(item).Chosen() {
+				got = append(got, choice{item, lines})
+			}
+		}
+	}
+	tt := ui.NewTester(func(c *ui.Context) { c.SetMenuPresentation(p); DiffView(c, d).Fill() }, 800, 400)
+	tt.Frame()
+	ed := &d.eds[1]
+	mid := func(line int) float32 {
+		return float32(ed.view.heights.geometry(line).rows-ed.scrollY) + ed.view.lineHeight/2
+	}
+	text := ed.r.X + ed.gutterW + 40
+	// The menu button on the line at y.
+	button := func(y float32) (ui.Rect, bool) {
+		for _, a := range tt.AccessAll() {
+			if a.Name == "Line actions" && a.Bounds.Y <= y && a.Bounds.Y+a.Bounds.H >= y {
+				return a.Bounds, true
+			}
+		}
+		return ui.Rect{}, false
+	}
+	if _, ok := tt.Access("Line actions"); ok {
+		t.Fatal("a menu button shows with the pointer away")
+	}
+	choose := func(x, y float32, item string, want DiffLineRange) {
+		t.Helper()
+		tt.Move(x, y)
+		tt.Frame()
+		r, ok := button(y)
+		if !ok {
+			t.Fatalf("no menu button on the line at %v: %+v", y, tt.AccessAll())
+		}
+		e := &d.eds[1]
+		if x < ed.r.X {
+			e = &d.eds[0]
+		}
+		if r.X+r.W > e.r.X+e.r.W-e.trackWidth() {
+			t.Fatalf("menu button at %v, over the scrollbar's track of %v", r, e.r)
+		}
+		tt.Move(r.X+r.W/2, r.Y+r.H/2)
+		tt.ClickAt(r.X+r.W/2, r.Y+r.H/2)
+		if m := tt.Menu(); !slices.Equal(m, []string{"Comment", "Suggest change", "Copy"}) {
+			t.Fatalf("menu %q", m)
+		}
+		got = nil
+		if err := tt.ChooseMenuItem(item); err != nil {
+			t.Fatal(err)
+		}
+		if want := []choice{{item, want}}; !slices.Equal(got, want) {
+			t.Fatalf("chose %+v, want %+v", got, want)
+		}
+	}
+	// A line, unchanged or changed, of either side.
+	choose(text, mid(4), "Comment", DiffLineRange{DiffNew, 4, 4})
+	choose(text, mid(2), "Suggest change", DiffLineRange{DiffNew, 2, 2})
+	old := &d.eds[0]
+	choose(old.r.X+old.gutterW+40, mid(1), "Copy", DiffLineRange{DiffOld, 1, 1})
+	// The lines selected, from one among them.
+	x := ed.r.X + ed.gutterW - 8
+	tt.Press(x, mid(1))
+	tt.Move(x, mid(3))
+	tt.Frame()
+	if r, ok := tt.Access("Line actions"); ok {
+		t.Fatalf("a menu button shows at %v during a drag", r.Bounds)
+	}
+	tt.Release(x, mid(3))
+	choose(text, mid(2), "Suggest change", DiffLineRange{DiffNew, 1, 3})
+	choose(text, mid(4), "Copy", DiffLineRange{DiffNew, 4, 4})
+	// It draws a chevron: its ink, the button's middle third across, is
+	// lower in the middle than at the sides.
+	tt.Move(text, mid(1))
+	tt.Frame()
+	btn, _ := button(mid(1))
+	img := tt.Image()
+	sc := float32(img.Bounds().Dx()) / 800
+	bg := img.RGBAAt(int((btn.X+2)*sc), int((btn.Y+btn.H/2)*sc))
+	low := func(x float32) int {
+		y := -1
+		for py := int((btn.Y + 2) * sc); py < int((btn.Y+btn.H-2)*sc); py++ {
+			if img.RGBAAt(int(x*sc), py) != bg {
+				y = py
+			}
+		}
+		return y
+	}
+	side, middle := low(btn.X+btn.W/3), low(btn.X+btn.W/2)
+	if side < 0 || middle <= side {
+		t.Fatalf("the menu button's ink is lowest at %d in its middle, %d at its side", middle, side)
+	}
+}
+
 // Shift-click moves an end, and a drag from there keeps the other end.
 func TestDiffViewerLineSelectionShiftDrag(t *testing.T) {
 	d := &DiffState{Old: NewBuffer("a\nb\nc\nd\ne\nf\n"), New: NewBuffer("A\nB\nC\nD\nE\nF\n"), Layout: DiffSplit, ExpandUnchanged: true, LineSelection: true}

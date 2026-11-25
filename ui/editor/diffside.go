@@ -616,6 +616,48 @@ func (s *diffSide) buildBlocks(c *ui.Context, ed *editor) {
 			})
 		}
 	}
+	if d.LineMenu != nil {
+		s.buildLineMenu(c, ed, side)
+	}
+}
+
+// buildLineMenu builds the menu button at the right end of the line under
+// the pointer.
+func (s *diffSide) buildLineMenu(c *ui.Context, ed *editor, side DiffSide) {
+	if hover := ed.hoverLine; !s.empty() && !ed.gesture.active && hover >= 0 && hover < ed.view.text.LineCount() {
+		s.lineMenuButton(c, ed, side, hover)
+	}
+}
+
+// lineMenuButton builds the menu button of a line, whose menu LineMenu
+// fills for the line, or for the lines selected when it is among them.
+func (s *diffSide) lineMenuButton(c *ui.Context, ed *editor, side DiffSide, line int) {
+	d := s.d
+	v := &ed.view
+	g := v.heights.geometry(line)
+	lines := DiffLineRange{Side: side, Start: line, End: line}
+	if d.hasSel && d.selected.Side == side && line >= d.selected.Start && line <= d.selected.End {
+		lines = d.selected
+	}
+	lh := v.lineHeight
+	t := c.Theme()
+	ui.Box(c).Key(fmt.Sprint("line menu ", line)).Absolute().Right(ed.trackWidth() + 6).Top(float32(g.rows-ed.scrollY) + 2).HandleInput(shield).Children(func() {
+		btn := ui.ButtonBase(c).Size(lh-4, lh-4).Radius(4).Label(l10n.In(c.Locale()).LineActions()).Cursor(ui.CursorPointer)
+		btn.Draw(func(p *ui.Painter, r ui.Rect) {
+			bg := t.Surface
+			if btn.Hovered() || btn.Focused() {
+				bg = t.Border
+			}
+			p.Fill(r, bg, 4)
+			cx, cy := r.X+r.W/2, r.Y+r.H/2
+			var chevron ui.Path
+			chevron.MoveTo(cx-3.5, cy-1.75).LineTo(cx, cy+1.75).LineTo(cx+3.5, cy-1.75)
+			p.StrokePath(&chevron, 1.5, t.Text)
+		})
+		btn.Menu(func(m *ui.Menu) {
+			d.LineMenu(m, lines)
+		})
+	})
 }
 
 // hunkSpan returns the heights of the content a change's lines show

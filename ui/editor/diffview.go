@@ -109,6 +109,12 @@ type DiffState struct {
 	// on the side it started on, and calls it with them on release; a
 	// click among the lines selected calls it with them all.
 	OnGutterButton func(DiffLineRange)
+	// LineMenu shows a button at the right end of the line under the
+	// pointer, whose menu it fills with the actions on the line, or on
+	// the lines selected when it is among them, as to comment on them,
+	// suggest a change to them or copy them. A change's actions go left
+	// of it.
+	LineMenu func(m *ui.Menu, lines DiffLineRange)
 	// Annotations show what RenderAnnotation builds under lines, as
 	// comments of a review, as high as each asks; the other side of a
 	// split view leaves the room empty.
