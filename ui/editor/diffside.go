@@ -627,9 +627,22 @@ func (s *diffSide) buildBlocks(c *ui.Context, ed *editor) {
 }
 
 // buildLineMenu builds the menu button at the right end of the line under
-// the pointer.
+// the pointer, and of the line whose menu shows in the window, which
+// stays on its line while the pointer goes on to others. A system menu
+// takes the pointer while it shows.
 func (s *diffSide) buildLineMenu(c *ui.Context, ed *editor, side DiffSide) {
-	if hover := ed.hoverLine; !s.empty() && !ed.gesture.active && hover >= 0 && hover < ed.view.text.LineCount() {
+	d := s.d
+	n := ed.view.text.LineCount()
+	i := int(side)
+	held := -1
+	if d.menuHeld[i] && d.menuLine[i] < n {
+		held = d.menuLine[i]
+	}
+	d.menuHeld[i] = false
+	if held >= 0 {
+		s.lineMenuButton(c, ed, side, held)
+	}
+	if hover := ed.hoverLine; !s.empty() && !ed.gesture.active && hover >= 0 && hover < n && hover != held {
 		s.lineMenuButton(c, ed, side, hover)
 	}
 }
@@ -640,6 +653,9 @@ func (s *diffSide) lineMenuButton(c *ui.Context, ed *editor, side DiffSide, line
 	d := s.d
 	v := &ed.view
 	g := v.heights.geometry(line)
+	if g.hidden {
+		return
+	}
 	lines := DiffLineRange{Side: side, Start: line, End: line}
 	if d.hasSel && d.selected.Side == side && line >= d.selected.Start && line <= d.selected.End {
 		lines = d.selected
@@ -660,6 +676,7 @@ func (s *diffSide) lineMenuButton(c *ui.Context, ed *editor, side DiffSide, line
 			p.StrokePath(&chevron, 1.5, t.Text)
 		})
 		btn.Menu(func(m *ui.Menu) {
+			d.menuHeld[int(side)], d.menuLine[int(side)] = true, line
 			d.LineMenu(m, lines)
 		})
 	})

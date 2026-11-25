@@ -159,6 +159,11 @@ type DiffState struct {
 	// selAnchor is the line of selected a drag or Shift-click extends
 	// from: the one pressed, or the end Shift-click left in place.
 	selAnchor int
+	// menuHeld says, by side, old then new, that the menu of line
+	// menuLine was built the frame before, as a menu drawn in the window
+	// is while it shows, for its button to stay on its line (LineMenu).
+	menuHeld [2]bool
+	menuLine [2]int
 	// checking is the drag over changed lines checking them, or
 	// unchecking them (LineChecks), until it is released.
 	checking lineChecking

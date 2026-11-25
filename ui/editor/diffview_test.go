@@ -429,8 +429,12 @@ func TestDiffViewerGutterButton(t *testing.T) {
 	}
 }
 
+// TestDiffViewerLineMenu checks the menu button at the end of the line
+// under the pointer: its menu acts on the line, or on the lines selected
+// when it is among them, it stays on its line while its menu is open, and
+// a change's actions go left of it.
 func TestDiffViewerLineMenu(t *testing.T) {
-	for _, p := range []ui.MenuPresentation{ui.SystemMenus} {
+	for _, p := range []ui.MenuPresentation{ui.SystemMenus, ui.PopoverMenus} {
 		testDiffViewerLineMenu(t, p)
 	}
 }
@@ -489,6 +493,23 @@ func testDiffViewerLineMenu(t *testing.T, p ui.MenuPresentation) {
 		if m := tt.Menu(); !slices.Equal(m, []string{"Comment", "Suggest change", "Copy"}) {
 			t.Fatalf("menu %q", m)
 		}
+		// While a menu drawn in the window shows, the pointer going on
+		// to another line leaves its button on its own, and shows that
+		// line's. A system menu takes the pointer while it shows.
+		if p == ui.PopoverMenus {
+			other := mid(0)
+			if y == other {
+				other = mid(3)
+			}
+			tt.Move(text, other)
+			tt.Frame()
+			if r2, ok := button(y); !ok || r2 != r {
+				t.Fatalf("the open menu's button went from %v to %v, %v", r, r2, ok)
+			}
+			if _, ok := button(other); !ok {
+				t.Fatal("no menu button on the line the pointer went on to")
+			}
+		}
 		got = nil
 		if err := tt.ChooseMenuItem(item); err != nil {
 			t.Fatal(err)
@@ -538,6 +559,53 @@ func testDiffViewerLineMenu(t *testing.T, p ui.MenuPresentation) {
 	side, middle := low(btn.X+btn.W/3), low(btn.X+btn.W/2)
 	if side < 0 || middle <= side {
 		t.Fatalf("the menu button's ink is lowest at %d in its middle, %d at its side", middle, side)
+	}
+}
+
+// TestDiffViewerLineMenuFolded checks that a line folded away while its
+// menu shows, or gone from the text, takes its button, and the menu, with
+// it.
+func TestDiffViewerLineMenuFolded(t *testing.T) {
+	old := strings.Repeat("x\n", 30) + "a\n" + strings.Repeat("y\n", 30)
+	d := &DiffState{Old: NewBuffer(old), New: NewBuffer(strings.Replace(old, "a", "A", 1)), Layout: DiffSplit, ExpandUnchanged: true,
+		LineMenu: func(m *ui.Menu, lines DiffLineRange) { m.Item("Copy") }}
+	tt := ui.NewTester(func(c *ui.Context) { c.SetMenuPresentation(ui.PopoverMenus); DiffView(c, d).Fill() }, 800, 400)
+	tt.Frame()
+	ed := &d.eds[1]
+	tt.Move(ed.r.X+ed.gutterW+40, float32(ed.view.heights.geometry(3).rows-ed.scrollY)+ed.view.lineHeight/2)
+	tt.Frame()
+	r, ok := tt.Find("Line actions")
+	if !ok {
+		t.Fatal("no menu button on line 3")
+	}
+	tt.ClickAt(r.X+r.W/2, r.Y+r.H/2)
+	if m := tt.Menu(); len(m) != 1 {
+		t.Fatalf("menu %q", m)
+	}
+	d.ExpandUnchanged = false
+	tt.Frame()
+	if !ed.view.heights.geometry(3).hidden {
+		t.Fatal("line 3 did not fold")
+	}
+	if r, ok := tt.Access("Line actions"); ok {
+		t.Fatalf("the folded line's menu button shows at %v", r.Bounds)
+	}
+	if m := tt.Menu(); len(m) != 0 {
+		t.Fatalf("the folded line's menu shows %q", m)
+	}
+	// So does a line the text no longer has.
+	d.ExpandUnchanged = true
+	tt.Frame()
+	tt.Move(ed.r.X+ed.gutterW+40, float32(ed.view.heights.geometry(10).rows-ed.scrollY)+ed.view.lineHeight/2)
+	tt.Frame()
+	if r, ok = tt.Find("Line actions"); !ok {
+		t.Fatal("no menu button on line 10")
+	}
+	tt.ClickAt(r.X+r.W/2, r.Y+r.H/2)
+	d.New.Set("x\n")
+	tt.Frame()
+	if r, ok := tt.Access("Line actions"); ok {
+		t.Fatalf("a menu button shows at %v for a line gone", r.Bounds)
 	}
 }
 
