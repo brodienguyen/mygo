@@ -448,7 +448,7 @@ func testDiffViewerLineMenu(t *testing.T, p ui.MenuPresentation) {
 	d := &DiffState{Old: NewBuffer("a\nb\nc\nd\ne\n"), New: NewBuffer("a\nB\nC\nD\ne\n"), Layout: DiffSplit, ExpandUnchanged: true,
 		LineSelection: true, HunkActions: true}
 	d.LineMenu = func(m *ui.Menu, lines DiffLineRange) {
-		for _, item := range []string{"Comment", "Suggest change", "Copy"} {
+		for _, item := range []string{"Comment", "Suggest change", "Copy link"} {
 			if m.Item(item).Chosen() {
 				got = append(got, choice{item, lines})
 			}
@@ -490,7 +490,7 @@ func testDiffViewerLineMenu(t *testing.T, p ui.MenuPresentation) {
 		}
 		tt.Move(r.X+r.W/2, r.Y+r.H/2)
 		tt.ClickAt(r.X+r.W/2, r.Y+r.H/2)
-		if m := tt.Menu(); !slices.Equal(m, []string{"Comment", "Suggest change", "Copy"}) {
+		if m := tt.Menu(); !slices.Equal(m, []string{"Comment", "Suggest change", "Copy link", "-", "Copy"}) {
 			t.Fatalf("menu %q", m)
 		}
 		// While a menu drawn in the window shows, the pointer going on
@@ -522,7 +522,7 @@ func testDiffViewerLineMenu(t *testing.T, p ui.MenuPresentation) {
 	choose(text, mid(4), "Comment", DiffLineRange{DiffNew, 4, 4})
 	choose(text, mid(2), "Suggest change", DiffLineRange{DiffNew, 2, 2})
 	old := &d.eds[0]
-	choose(old.r.X+old.gutterW+40, mid(1), "Copy", DiffLineRange{DiffOld, 1, 1})
+	choose(old.r.X+old.gutterW+40, mid(1), "Copy link", DiffLineRange{DiffOld, 1, 1})
 	// The lines selected, from one among them.
 	x := ed.r.X + ed.gutterW - 8
 	tt.Press(x, mid(1))
@@ -533,7 +533,7 @@ func testDiffViewerLineMenu(t *testing.T, p ui.MenuPresentation) {
 	}
 	tt.Release(x, mid(3))
 	choose(text, mid(2), "Suggest change", DiffLineRange{DiffNew, 1, 3})
-	choose(text, mid(4), "Copy", DiffLineRange{DiffNew, 4, 4})
+	choose(text, mid(4), "Copy link", DiffLineRange{DiffNew, 4, 4})
 	// The change's actions, on its first line, go left of the button.
 	tt.Move(text, mid(1))
 	tt.Frame()
@@ -562,13 +562,64 @@ func testDiffViewerLineMenu(t *testing.T, p ui.MenuPresentation) {
 	}
 }
 
+// TestDiffViewerLineMenuItems checks the items a line's menu has of the
+// diff's own, after the app's.
+func TestDiffViewerLineMenuItems(t *testing.T) {
+	d := &DiffState{Old: NewBuffer("a\nb\nc\nd\ne\n"), New: NewBuffer("a\nB\nC\nD\ne\n"), Layout: DiffSplit, ExpandUnchanged: true,
+		LineSelection: true, LineMenu: func(m *ui.Menu, lines DiffLineRange) { m.Item("Comment") }}
+	tt := ui.NewTester(func(c *ui.Context) { DiffView(c, d).Fill() }, 800, 400)
+	tt.Frame()
+	ed := &d.eds[1]
+	mid := func(line int) float32 {
+		return float32(ed.view.heights.geometry(line).rows-ed.scrollY) + ed.view.lineHeight/2
+	}
+	// open opens the menu of new line line.
+	open := func(line int) {
+		t.Helper()
+		tt.Move(ed.r.X+ed.gutterW+40, mid(line))
+		tt.Frame()
+		for _, a := range tt.AccessAll() {
+			if a.Name == "Line actions" {
+				tt.ClickAt(a.Bounds.X+a.Bounds.W/2, a.Bounds.Y+a.Bounds.H/2)
+				if m, want := tt.Menu(), []string{"Comment", "-", "Copy"}; !slices.Equal(m, want) {
+					t.Fatalf("menu %q, want %q", m, want)
+				}
+				return
+			}
+		}
+		t.Fatalf("no menu button on line %d", line)
+	}
+	choose := func(item string) {
+		t.Helper()
+		if err := tt.ChooseMenuItem(item); err != nil {
+			t.Fatal(err)
+		}
+		tt.Frame()
+	}
+	// Copy copies the line's text, or the selected lines'.
+	open(2)
+	choose("Copy")
+	if got := tt.Clipboard(); got != "C" {
+		t.Fatalf("copied %q", got)
+	}
+	x := ed.r.X + ed.gutterW - 8
+	tt.Press(x, mid(1))
+	tt.Move(x, mid(3))
+	tt.Release(x, mid(3))
+	open(2)
+	choose("Copy")
+	if got := tt.Clipboard(); got != "B\nC\nD" {
+		t.Fatalf("copied %q from the lines selected", got)
+	}
+}
+
 // TestDiffViewerLineMenuFolded checks that a line folded away while its
 // menu shows, or gone from the text, takes its button, and the menu, with
 // it.
 func TestDiffViewerLineMenuFolded(t *testing.T) {
 	old := strings.Repeat("x\n", 30) + "a\n" + strings.Repeat("y\n", 30)
 	d := &DiffState{Old: NewBuffer(old), New: NewBuffer(strings.Replace(old, "a", "A", 1)), Layout: DiffSplit, ExpandUnchanged: true,
-		LineMenu: func(m *ui.Menu, lines DiffLineRange) { m.Item("Copy") }}
+		LineMenu: func(m *ui.Menu, lines DiffLineRange) { m.Item("Comment") }}
 	tt := ui.NewTester(func(c *ui.Context) { c.SetMenuPresentation(ui.PopoverMenus); DiffView(c, d).Fill() }, 800, 400)
 	tt.Frame()
 	ed := &d.eds[1]
@@ -579,7 +630,7 @@ func TestDiffViewerLineMenuFolded(t *testing.T) {
 		t.Fatal("no menu button on line 3")
 	}
 	tt.ClickAt(r.X+r.W/2, r.Y+r.H/2)
-	if m := tt.Menu(); len(m) != 1 {
+	if m := tt.Menu(); len(m) == 0 {
 		t.Fatalf("menu %q", m)
 	}
 	d.ExpandUnchanged = false

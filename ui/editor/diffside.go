@@ -678,8 +678,20 @@ func (s *diffSide) lineMenuButton(c *ui.Context, ed *editor, side DiffSide, line
 		btn.Menu(func(m *ui.Menu) {
 			d.menuHeld[int(side)], d.menuLine[int(side)] = true, line
 			d.LineMenu(m, lines)
+			s.lineMenuItems(m, ed, lines)
 		})
 	})
+}
+
+// lineMenuItems adds the diff's own items to a line's menu, after the
+// app's: copying the lines.
+func (s *diffSide) lineMenuItems(m *ui.Menu, ed *editor, lines DiffLineRange) {
+	tx := ed.texts
+	m.Separator()
+	if m.Item(tx.Copy()).Chosen() {
+		r := &ed.view.text
+		ed.services.WriteClipboard(r.Slice(r.LineStart(lines.Start), r.LineEnd(lines.End)))
+	}
 }
 
 // hunkSpan returns the heights of the content a change's lines show
